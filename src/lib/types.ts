@@ -74,6 +74,12 @@ export type Comment = {
   createdAt: Date;
   isDead: boolean;
   isDeleted: boolean;
+  /**
+   * Shadow-banned: visible only to its author and to moderators. On the contract rather than on the
+   * fixture row because a moderator reading a thread has to be *told* why they can see it — the
+   * alternative is a moderator mistaking hidden content for public content.
+   */
+  isShadow: boolean;
 };
 
 /** A comment with its children attached, as `tree.ts` assembles it. */

@@ -17,9 +17,9 @@ type Search = Promise<{ id?: string }>;
  * A comment permalink: the comment, its subtree, and a breadcrumb of ancestors so the reader can
  * see what it is replying to. This is where "continue this thread" lands when a subtree passes the
  * depth cap, so the tree re-roots here and depth starts counting again from this comment.
+ *
+ * The id is validated in the page body so the status is a real 404 — see item/page.tsx.
  */
-/** Validated before streaming, so a bad id answers 404 rather than 200 — see item/page.tsx. */
-/** Validated in the page body so the status is a real 404 — see item/page.tsx. */
 export default async function ReplyPage({ searchParams }: { searchParams: Search }) {
   const id = Number((await searchParams).id);
   if (!Number.isInteger(id)) notFound();
@@ -80,11 +80,13 @@ async function Permalink({ searchParams }: { searchParams: Search }) {
             viewerName: opts.userId,
             baseDepth: node.depth,
             canDownvote: viewer?.canDownvote ?? false,
+            canFlag: viewer?.canFlag ?? false,
+            isModerator: opts.isModerator,
           }}
         />
       </div>
 
-      <ReplyForm label="Reply to this comment" submit="Reply" />
+      <ReplyForm targetId={node.id} label="Reply to this comment" submit="Reply" />
     </>
   );
 }

@@ -22,7 +22,7 @@ export function Field({
 }: {
   name: string;
   label: string;
-  hint?: string;
+  hint?: React.ReactNode;
   error?: string;
   /** Shown right-aligned beside the label, e.g. "0 / 80". Turns red once over the limit. */
   counter?: { value: number; max: number };

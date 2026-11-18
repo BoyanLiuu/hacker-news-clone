@@ -6,6 +6,12 @@ export const CFG = {
   /** The ranking exponent. The editorial voice lives here — see lib/rank.ts. */
   gravity: 1.8,
   pageSize: 30,
+  /**
+   * Title length. Lives here rather than in the form because the rules aside on `/submit` is a
+   * server component: a value exported from a `"use client"` module reaches the server as a client
+   * reference, not a number, and interpolates as the stub's source text.
+   */
+  titleMax: 80,
   /** Visual cap only; the tree is stored to unlimited depth. */
   depthCap: 8,
   /** A URL posted within this window folds into the existing thread. */

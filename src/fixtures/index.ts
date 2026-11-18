@@ -97,10 +97,7 @@ export const posts: readonly Post[] = RAW_POSTS.map((p) => ({
 
 export const postById = new Map(posts.map((p) => [p.id, p]));
 
-/** Shadow-banned authorship lives on the user, so the comment row carries it for the filter. */
-export type FixtureComment = Comment & { isShadow: boolean };
-
-export const comments: readonly FixtureComment[] = RAW_COMMENTS.map((c) => ({
+export const comments: readonly Comment[] = RAW_COMMENTS.map((c) => ({
   id: c.id,
   postId: c.postId,
   parentId: c.parentId,

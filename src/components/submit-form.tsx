@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import { CFG } from "@/lib/config";
+import { registrableDomain } from "@/lib/domain";
 import { Field, OrDivider, PrimaryButton, textInputClass } from "./field";
 import { Notice } from "./notice";
 
-export const TITLE_MAX = 80;
-
 type Errors = { title?: string; url?: string; text?: string };
+
+/**
+ * The rate-limited state, formatted on the server. Both strings are read off the clock, so
+ * computing them here would hydrate against a different minute than the server rendered.
+ */
+export type Blocked = { at: string; until: string; used: number };
 
 /**
  * The submit form. Validation runs here so the counter and the errors are live, and the same rules
@@ -16,20 +21,28 @@ type Errors = { title?: string; url?: string; text?: string };
  * Nothing persists yet: the service throws `NotImplementedInStaticPhase`, so submitting shows what
  * would happen rather than pretending to work.
  */
-export function SubmitForm({ viewerName }: { viewerName: string | null }) {
+export function SubmitForm({
+  viewerName,
+  blocked,
+}: {
+  viewerName: string | null;
+  blocked: Blocked | null;
+}) {
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<Errors | null>(null);
 
   const count = Object.keys(errors ?? {}).length;
+  // Shown under the field as you type, so the listing's byline is not a surprise after submitting.
+  const domain = registrableDomain(url.trim());
 
   function validate(event: React.FormEvent) {
     event.preventDefault();
     const found: Errors = {};
 
     if (!title.trim()) found.title = "Add a title.";
-    else if (title.length > TITLE_MAX) found.title = `Shorten the title to ${TITLE_MAX} characters.`;
+    else if (title.length > CFG.titleMax) found.title = `Shorten the title to ${CFG.titleMax} characters.`;
 
     const hasUrl = url.trim().length > 0;
     const hasText = text.trim().length > 0;
@@ -48,6 +61,18 @@ export function SubmitForm({ viewerName }: { viewerName: string | null }) {
 
   return (
     <form onSubmit={validate} noValidate className="max-w-[640px]">
+      {/* Above the fields, and the fields stay enabled: the draft is the thing worth protecting
+          when you have hit the limit, so you can keep writing. Submit stays disabled until the
+          page is loaded again — the quota is read on the server, and nothing here polls it. */}
+      {blocked ? (
+        <Notice tone="amber">
+          <strong>
+            You&rsquo;ve reached {blocked.used} submission{blocked.used === 1 ? "" : "s"} this hour.
+          </strong>{" "}
+          You can submit again at {blocked.at} UTC, {blocked.until}. Your draft stays here.
+        </Notice>
+      ) : null}
+
       {errors && count > 0 ? (
         <Notice tone="red">
           <strong>
@@ -64,7 +89,7 @@ export function SubmitForm({ viewerName }: { viewerName: string | null }) {
         </Notice>
       ) : null}
 
-      <Field name="title" label="Title" error={errors?.title} counter={{ value: title.length, max: TITLE_MAX }}>
+      <Field name="title" label="Title" error={errors?.title} counter={{ value: title.length, max: CFG.titleMax }}>
         <input
           id="title"
           name="title"
@@ -74,7 +99,12 @@ export function SubmitForm({ viewerName }: { viewerName: string | null }) {
         />
       </Field>
 
-      <Field name="url" label="URL" error={errors?.url}>
+      <Field
+        name="url"
+        label="URL"
+        error={errors?.url}
+        hint={domain ? <>Will show as <span className="font-semibold text-ink-2">{domain}</span></> : undefined}
+      >
         <input
           id="url"
           name="url"
@@ -105,7 +135,9 @@ export function SubmitForm({ viewerName }: { viewerName: string | null }) {
       </Field>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
-        <PrimaryButton type="submit">Submit</PrimaryButton>
+        <PrimaryButton type="submit" disabled={blocked !== null}>
+          Submit
+        </PrimaryButton>
         <span className="type-meta text-meta">
           {viewerName ? (
             <>
@@ -116,10 +148,6 @@ export function SubmitForm({ viewerName }: { viewerName: string | null }) {
           )}
         </span>
       </div>
-
-      <p className="mt-4 type-meta text-meta">
-        Rate limit: {CFG.ratePerHour} an hour per account, {CFG.ratePerIp} per network.
-      </p>
     </form>
   );
 }

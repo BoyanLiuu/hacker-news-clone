@@ -13,8 +13,8 @@ Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, 
 | **M2 — Listings** | **Done** |
 | **M3 — Thread and comment tree** | **Done** |
 | **M4 — Figure 1** | **Done** |
-| M5 — Forms, profiles, moderation views, error states | **Partial — 11 of 17 surfaces** |
-| M6 — Motion pass | After M5 finishes |
+| M5 — Forms, profiles, moderation views, error states | **Done — 16 of 17; `ux-24` blocked on M9** |
+| M6 — Motion pass | Next |
 
 ---
 
@@ -427,9 +427,11 @@ It is also less necessary here than in the prototype: the aside stacks below the
 the figure is already reachable on a phone, and `/rank-debug` gives the interactive version. Recorded
 rather than silently skipped.
 
-**The thread figure** — points and rank since posting, from `ux-4` — is still outstanding. It is a
-different chart from this one and did not share the decay geometry, so it is better done alongside
-M5's remaining surfaces than bolted onto this milestone.
+**The thread figure** — points and rank since posting, from `ux-4` — was deferred here, and again in
+M5. It is now **dropped from phase 1**, with the reason recorded in ARCHITECTURE Appendix E: it needs a
+vote history, and the only curve phase 1 could draw is `pointsAt`'s back-projection, which would put an
+invented history beside measured facts under a caption reading "since posting". Reconsidered in M9,
+when the ranking job starts producing real rank-over-time rows.
 
 **Commit.** `feat: Add the decay figure and rank-debug view` — not committed yet.
 
@@ -479,7 +481,7 @@ tone, content and action, so they are not duplication.
 
 ---
 
-## M5 — Forms, profiles, moderation views and error states · Partial (11 of 17)
+## M5 — Forms, profiles, moderation views and error states · Done (16 of 17)
 
 **Built.** `/submit` with the live 80-character counter, the three notice tones and the rules aside ·
 `/settings` with about and show-dead · `/user/[username]` with the facts table and URL-driven tabs ·
@@ -488,13 +490,86 @@ tone, content and action, so they are not duplication.
 
 **The 13 prefetch 404s on the front page are gone** — they were exactly these routes.
 
-**Still open, and the reason M5 was flagged as overloaded when the plan was reviewed:**
+**The five that were open are now four built and one honestly blocked.**
 
-- `ux-12` duplicate submit — `findDuplicate` exists in the service, no UI
-- `ux-13` rate-limited state — the limit is stated, the state is not rendered
-- `ux-24` stale ranking — the amber document line is wired but `stale` is hardcoded `false`; needs M9's `computedAt`
-- `ux-28` own-post delete confirm — the link exists, the red inline confirm does not
-- `ux-18` / `ux-21` — new-account and moderator thread variants
+| Surface | Where it is | Reachable at |
+|---|---|---|
+| `ux-12` duplicate submit | `item/page.tsx` → `DuplicateNotice` | `/item?id=38214&dup=1` |
+| `ux-13` rate-limited | `getSubmitQuota` + `SubmitForm`'s `blocked` | `/submit?limited=1` |
+| `ux-28` delete confirm | `delete-confirm.tsx` | `/item?id=38286&confirm=delete` |
+| `ux-18` new-account thread | `canFlag` / `canDownvote` gating | `/preview?as=fernhill&to=/item?id=38214` |
+| `ux-21` moderator thread | `collapseShadow` + the shadow label | `/preview?as=moss&to=/item?id=38214` |
+| `ux-24` stale ranking | **blocked** | needs M9's real `computedAt` |
+
+`ux-24` is the one left, and leaving it is the point: `stale` can only be true if something measured it,
+and nothing does until the ranking job runs. A hardcoded amber document line would make the product's one
+honest staleness indicator a decoration.
+
+**The enabler was a fixture viewer switch.** Three of those surfaces are states of *who is looking*, and
+without a control each one needs a code edit to look at — which means in practice it stops being checked.
+`/preview?as=<user>&to=<path>` sets a cookie `getViewer` reads, with a "Preview as" block on `/settings`.
+Three guards, because a route that changes who you are is exactly the thing to be careful with: `as` must
+match a fixture username (unknown → 400), `to` must be a same-origin absolute path (`//evil.example` and
+`https://evil.example` both → `/`), and the route answers 404 under `NODE_ENV=production`. All three
+verified. M10 deletes the route, the cookie read and the switcher — harmless over fixtures, privilege
+escalation over real sessions — and the plan's M10 now carries that as a checklist item.
+
+**The shadow-ban label is withheld from the banned author.** A moderator seeing an unlabelled row they can
+only see because of a ban will reply to it in the open, which tells the author they are banned; an author
+shown "shadow-banned" on their own comment learns the same thing directly. So the label is gated on
+`isModerator`, not on visibility. Verified in the browser as `quietbit`: own comment visible, no label, no
+moderation link.
+
+`collapseShadow` also closed a real gap — a ban applies to everything its author writes, but only rows
+flagged individually carried `isShadow`. An unflagged comment by a banned author would have rendered to a
+moderator with no label. The one banned fixture author's only comment *is* individually flagged, so no
+fixture reaches that branch; it is unit-tested against a constructed row instead.
+
+**Two defects found by looking at it in a browser, neither caught by lint, `tsc` or the build:**
+
+1. **`/submit` rendered a function body where the title limit should be.** `TITLE_MAX` was exported from
+   `submit-form.tsx`, which is `"use client"`. A value imported from a client module into a server
+   component arrives as a client *reference*, not a number, and interpolating it printed the stub's
+   source: `Required, 1–function() { throw new Error("Attempted to call TITLE_MAX()...") } characters`.
+   This shipped in M5 and sat there through a review pass. Moved to `CFG.titleMax`, which is where the
+   other product constants already were.
+2. **The delete confirm was unreadable at 375 px.** Text and buttons on one flex row squeezed the sentence
+   into a seven-line ribbon. Column below `sm`, row above. Now two lines, no overflow.
+
+**One measured deviation from the reference PNG.** `ux-28` shows the confirm sentence on one line; mine
+wraps to two. The sentence needs 569 px and the band's inner width minus the two buttons leaves 514 px.
+Closing a 55 px gap would mean type below the design's 14 px body or buttons below 36 px, both of which
+cost more than the wrap does.
+
+**Also cleaned up, under the comment-accuracy rule now in `AGENTS.md`:** `item/page.tsx` and
+`reply/page.tsx` each carried two overlapping doc blocks saying the same thing about `notFound()`;
+`ThreadAside` claimed the thread figure "lands with the other figures in M4" after M4 had shipped without
+it; `reply-form.tsx` and `posts.ts` pointed at M11 for work the plan moved to M12; `vote-button.tsx` had
+`VoteButton`'s doc comment sitting above `DownVoteButton`. Three dead imports in the figure components
+(`AXES`, `X_TICKS`, `Y_TICKS`, left behind when `figure-frame.tsx` took over the frame) are gone, so lint
+is clean with zero warnings rather than five.
+
+**`ReplyForm` takes an `id` prop** (default `reply-text`) ahead of M11's inline per-comment reply boxes,
+where two forms sharing one element id would have pointed both labels at the first textarea.
+
+**Verification.** 57 tests across 9 files, `pnpm lint` clean, `tsc --noEmit` clean, `pnpm build` clean,
+no console errors or warnings. Production HTML: front page 20.0 KB gz, thread 18.0 KB gz, `/submit`
+5.2 KB gz — against the 50 KB budget, and unchanged from the figures recorded for M5 before this work.
+Client JS on a thread 177.7 KB gz over 9 files, of which ~174 KB is the framework floor.
+
+**New tests, each naming the bug it catches:**
+
+| Test | Bug it catches |
+|---|---|
+| `formatUntil` rounds up | a wait shown as shorter than it is, so you retry and are refused again |
+| `formatUntil` stays in minutes past an hour | an hours branch that must either round down (lying) or overstate by an hour |
+| `formatMinutesLeft` returns null when closed | an expired edit window still offering `edit (0 min left)` |
+| `formatUtcClock` is UTC | a local-time deadline printed beside the design's "UTC" label |
+| quota counts only this hour | counting a lifetime of posts, locking out anyone with four submissions ever |
+| quota's `resetAt` is oldest + 1 h | a fixed cooldown instead of a rolling window — every refresh pushing the deadline away |
+| quota is empty when signed out | a limit notice on a page that has no form |
+| `collapseShadow` marks a banned author's unflagged row | a moderator replying in the open to content only they can see |
+| `collapseShadow` returns the same row when clean | an allocation per row on a 300-comment thread |
 
 **The significant decision: `cacheComponents` is off.**
 
@@ -511,8 +586,8 @@ page over a cached data read, which is what this now is.
 | Thread, gzipped | 20.7 KB | **18.0 KB** |
 | Front page, gzipped | 17.2 KB | 19.9 KB |
 
-Every route is now `ƒ`. **ARCHITECTURE Appendix B should record this** — it currently describes the
-PPR-shaped architecture.
+Every route is now `ƒ`. **Recorded in ARCHITECTURE Appendix B** as the ninth decision row, with the
+measurements above; §5 now also notes that the dynamic page shape is measured rather than assumed.
 
 One documented limitation: a thrown `notFound()` yields Next's minimal error document rather than
 `not-found.tsx`, so the status, the noindex and the browser-rendered page are all correct, but a
@@ -527,4 +602,46 @@ React compiler flagged `Date.now()` during render, and the real fix was recognis
 rules that depend on the clock, not rendering details. It also removed the karma-threshold check I
 had duplicated inline in M3.
 
-**Commit.** `feat: Add submit, profile, settings and moderation views`
+**Commit.** `feat: Add submit, profile, settings and moderation views` · completion pending commit
+
+### M5 completion review pass
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`.
+
+1. **Both phase-1 forms submitted to a 404.** The worst finding, and half of it shipped in M3.
+   `ReplyForm` and `DeleteConfirm` are plain `<form>`s with no `action`, which the comments described
+   as degrading "to a normal POST once the action exists". What a submit actually does is GET the
+   current path — which *replaces* the query string, so `id` is dropped: "Add comment" went to
+   `/item?text=…` and "Delete post" to `/item`, both `notFound()`. Reachable by anyone clicking the
+   button, and `required` on the textarea meant the reply case needed only one word of text.
+
+   Fixed by submitting the id as a hidden field in both, so an early submit returns to the page it
+   was typed on — which is also the field M12's action needs. Verified by clicking: "Delete post"
+   now lands on `/item?id=38286` with the confirm dismissed.
+
+   Worth naming the class: both comments described the *intended* phase-2 behaviour and read as
+   though it were current. That is the `AGENTS.md` rule again, in the one shape it is hardest to
+   catch — not a wrong mechanism, a right mechanism that is not wired up yet.
+
+2. **`readQuota` was two reads that could disagree.** `/submit` calls it twice — the form for the
+   notice, the aside for the "this hour" row — and the `?limited=1` branch minted its reset time
+   from `Date.now()` on each call. Only the form reads `resetAt` today, so nothing was visibly
+   wrong, but it is the per-request inconsistency `getViewer` was restructured to remove in M5.
+   Wrapped in `cache()`, and the 49-minute fallback (copied off the reference PNG) replaced with
+   `HOUR`, which is what a just-filled allowance actually implies.
+
+3. **A comment overstated the rate-limited form.** It said you could "finish writing and submit when
+   the slot frees". Submit is disabled from a server-read quota and nothing polls it, so the slot
+   freeing changes nothing until the page is loaded again. Reworded to say that.
+
+4. **Two small simplifications.** `encodeURIComponent("/settings")` computed a constant at render;
+   written as `%2Fsettings`. `VIEWERS` was declared below the component that reads it, against the
+   file-level convention everywhere else here.
+
+Not changed, deliberately: `ReplyForm`'s `elementId` default stays, since M11 is what needs distinct
+ids and inventing them now would be speculative; and the disabled Submit keeps `disabled` rather than
+`aria-disabled`, because the amber notice carries the explanation a keyboard user needs.
+
+**No test covers the hidden-id invariant.** It needs a component renderer, which this project does not
+have, and adding one for a single assertion is not worth it. It is a browser check, listed in the
+demo above.

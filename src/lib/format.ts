@@ -44,6 +44,34 @@ export function formatUtcTime(at: Date): string {
   return at.toISOString().slice(11, 19);
 }
 
+/** hh:mm, for a deadline a person has to act on rather than a machine fact to correlate. */
+export function formatUtcClock(at: Date): string {
+  return at.toISOString().slice(11, 16);
+}
+
 export function formatIsoDate(at: Date): string {
   return at.toISOString().slice(0, 10);
+}
+
+/**
+ * Forward-looking: "in 49 minutes". Rounds up, so a wait never reads as shorter than it is — a
+ * reader told "in 1 minute" who still cannot act has been lied to.
+ *
+ * Minutes throughout, with no hours branch. Every deadline this formats is under two hours, and
+ * rounding minutes into hours has to pick a direction: "in 1 hour" for 61 minutes breaks the rule
+ * above, and "in 2 hours" overstates by nearly an hour. "in 95 minutes" is exact and still reads.
+ */
+export function formatUntil(at: Date, now: Date = new Date()): string {
+  const minutes = Math.ceil((at.getTime() - now.getTime()) / 60_000);
+  if (minutes < 1) return "in under a minute";
+  return `in ${minutes} ${plural(minutes, "minute")}`;
+}
+
+/**
+ * A closing window: "80 min left", or null once it has closed. Minutes throughout, because the
+ * windows this measures are under two hours and "1 h left" hides that 61 minutes remain.
+ */
+export function formatMinutesLeft(deadline: Date, now: Date = new Date()): string | null {
+  const minutes = Math.ceil((deadline.getTime() - now.getTime()) / 60_000);
+  return minutes >= 1 ? `${minutes} min left` : null;
 }

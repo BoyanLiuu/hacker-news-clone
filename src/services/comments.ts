@@ -3,7 +3,7 @@ import { commentById, comments } from "@/fixtures";
 import { ancestorIds, isAtOrBeneath } from "@/lib/path";
 import { buildTree } from "@/lib/tree";
 import { NotImplementedInStaticPhase, type Comment, type CommentNode, type ViewerOpts } from "@/lib/types";
-import { visibleComment } from "./visibility";
+import { collapseShadow, visibleComment } from "./visibility";
 
 const byPath = (a: Comment, b: Comment) => a.path.localeCompare(b.path);
 
@@ -16,7 +16,10 @@ const byPath = (a: Comment, b: Comment) => a.path.localeCompare(b.path);
  * so a page wanting both the tree and the row count pays for one pass.
  */
 export const getThreadRows = cache(async (postId: number, opts: ViewerOpts): Promise<Comment[]> => {
-  return comments.filter((c) => c.postId === postId && visibleComment(c, opts)).sort(byPath);
+  return comments
+    .filter((c) => c.postId === postId && visibleComment(c, opts))
+    .map(collapseShadow)
+    .sort(byPath);
 });
 
 export const getThread = cache(async (postId: number, opts: ViewerOpts): Promise<CommentNode[]> => {
@@ -37,6 +40,7 @@ export const getSubtree = cache(
 
     const rows = comments
       .filter((c) => c.postId === root.postId && isAtOrBeneath(c.path, root.path) && visibleComment(c, opts))
+      .map(collapseShadow)
       .sort(byPath);
 
     const [node] = buildTree(rows);

@@ -1,14 +1,6 @@
 /**
- * A bare 26 px button holding a 12 px triangle drawn as a 1.5 px stroke in meta ink. On hover the
- * arrow turns ink over a 7% petrol wash. Your own items show a 7 px petrol square instead — you
- * cannot vote for yourself, so there is no arrow to offer.
- *
- * DESIGN.md §Vote Button. The pressed, pending, confirmed and rolled-back states arrive with the
- * real action in M12; this milestone delivers the glyph, the hit area and the hover.
- */
-/**
  * The downvote is the same glyph rotated 180 degrees, and only appears on comments for a viewer
- * past the karma threshold. The gating itself is enforced server-side in M12; this decides whether
+ * past the karma threshold. The gating itself is enforced server-side in M11; this decides whether
  * the control is offered at all.
  */
 export function DownVoteButton({ label }: { label: string }) {
@@ -31,6 +23,14 @@ export function DownVoteButton({ label }: { label: string }) {
   );
 }
 
+/**
+ * A bare 26 px button holding a 12 px triangle drawn as a 1.5 px stroke in meta ink. On hover the
+ * arrow turns ink over a 7% petrol wash. Your own items show a 7 px petrol square instead — you
+ * cannot vote for yourself, so there is no arrow to offer.
+ *
+ * DESIGN.md §Vote Button. The pressed, pending, confirmed and rolled-back states arrive with the
+ * real action in M11; this milestone delivers the glyph, the hit area and the hover.
+ */
 export function VoteButton({ label, own }: { label: string; own: boolean }) {
   if (own) {
     return (

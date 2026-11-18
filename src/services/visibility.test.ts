@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { comments, posts } from "@/fixtures";
-import { ANONYMOUS, type ViewerOpts } from "@/lib/types";
+import { comments, posts, users } from "@/fixtures";
+import { ANONYMOUS, type Comment, type ViewerOpts } from "@/lib/types";
 import { getThread } from "./comments";
 import { getNewestPage, getPostById } from "./posts";
+import { collapseShadow } from "./visibility";
 
 const MOD: ViewerOpts = { userId: "moss", isModerator: true, showDead: true };
 const OPTED_IN: ViewerOpts = { userId: "mlin", isModerator: false, showDead: true };
@@ -69,6 +70,45 @@ describe("shadow bans", () => {
     expect(await seenBy({ userId: "someone-else", isModerator: false, showDead: true })).toBe(false);
     expect(await seenBy({ userId: shadowed!.author, isModerator: false, showDead: false })).toBe(true);
     expect(await seenBy(MOD)).toBe(true);
+  });
+});
+
+describe("labelling shadowed rows for moderators", () => {
+  const banned = users.find((u) => u.isShadowBanned);
+
+  it("has a shadow-banned user in the fixtures to test against", () => {
+    expect(banned).toBeDefined();
+  });
+
+  // Catches: a moderator being shown a comment they can only see because its author is banned,
+  // with nothing saying so. Unlabelled, hidden content reads as public content, and the moderator
+  // replies to it in the open — which tells the banned author they are banned.
+  //
+  // Built rather than taken from the fixtures because the one banned author's comment is also
+  // flagged individually, so the author-ban branch has no fixture that reaches it.
+  it("marks a banned author's comment even when the row itself is not flagged", () => {
+    const row: Comment = {
+      id: -1,
+      postId: 1,
+      parentId: null,
+      author: banned!.username,
+      text: "unflagged, but by a banned author",
+      path: "0000000001",
+      depth: 0,
+      scoreRaw: 1,
+      createdAt: new Date(),
+      isDead: false,
+      isDeleted: false,
+      isShadow: false,
+    };
+
+    expect(collapseShadow(row).isShadow).toBe(true);
+  });
+
+  // Catches: the collapse allocating a new object for every row in a 300-comment thread.
+  it("returns the same row untouched when nothing is shadowed", () => {
+    const clean = comments.find((c) => !c.isShadow && c.author !== banned!.username)!;
+    expect(collapseShadow(clean)).toBe(clean);
   });
 });
 

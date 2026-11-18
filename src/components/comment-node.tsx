@@ -13,6 +13,13 @@ type Ctx = {
   viewerName: string | null;
   /** Comment downvotes unlock at a karma threshold — debrief §4. */
   canDownvote: boolean;
+  /** New accounts cannot flag, so the control is not offered at all — debrief §6. */
+  canFlag: boolean;
+  /**
+   * Whether to label shadow-banned rows. Moderators only, and deliberately not the author: a
+   * shadow ban that announces itself to the person banned is just a slow ban.
+   */
+  isModerator: boolean;
   /** Depth the rendering started at, so a permalink view does not re-cap immediately. */
   baseDepth: number;
 };
@@ -72,6 +79,14 @@ function CommentArticle({ node, ctx }: { node: Node; ctx: Ctx }) {
               <span className="rounded-hair border border-rule px-1 text-[11.5px] font-semibold">OP</span>
             ) : null}
 
+            {/* Why a moderator can see a row nobody else can. Without it, hidden content reads as
+                public content and gets replied to in the open. */}
+            {node.isShadow && ctx.isModerator ? (
+              <span className="font-semibold text-amber">
+                shadow-banned · only the author and moderators see this
+              </span>
+            ) : null}
+
             <span>{formatAgeLong(node.createdAt)}</span>
 
             {/* You see the score on your own comments only — matching HN, and stated in the debrief. */}
@@ -93,7 +108,7 @@ function CommentArticle({ node, ctx }: { node: Node; ctx: Ctx }) {
               <Link href={`/reply?id=${node.id}`} className="hover:underline">
                 reply
               </Link>
-              {own || deleted ? null : <span>flag</span>}
+              {own || deleted || !ctx.canFlag ? null : <span>flag</span>}
             </div>
           </div>
         </div>

@@ -1,15 +1,32 @@
 import Link from "next/link";
-import { formatAgeLong, formatCount } from "@/lib/format";
+import { CFG, MINUTE } from "@/lib/config";
+import { formatAgeLong, formatCount, formatMinutesLeft } from "@/lib/format";
 import type { Post } from "@/lib/types";
 import { CommentBody } from "./comment-body";
+import { DeleteConfirm } from "./delete-confirm";
 import { VoteButton } from "./vote-button";
 
 /**
  * The story at the top of a thread: headline at 24 px, the domain inline, then one meta line of
  * facts. Closed by a 1 px ink rule, which separates it from the discussion below.
  */
-export function PostHeader({ post, viewerName }: { post: Post; viewerName: string | null }) {
+export function PostHeader({
+  post,
+  viewerName,
+  canFlag,
+  confirmingDelete = false,
+}: {
+  post: Post;
+  viewerName: string | null;
+  /** New accounts cannot flag, so the control is not offered — debrief §6, via `getViewer`. */
+  canFlag: boolean;
+  confirmingDelete?: boolean;
+}) {
   const own = viewerName !== null && post.author === viewerName;
+  const editLeft = own ? formatMinutesLeft(new Date(post.createdAt.getTime() + CFG.editMinutes * MINUTE)) : null;
+  // Deleting is offered only while nothing is attached: once someone has replied, the thread is
+  // theirs too. Stated in the rules aside on /submit, enforced in the action in M12.
+  const canDelete = own && post.commentCount === 0;
 
   return (
     <header className="rule-close pb-4">
@@ -55,16 +72,31 @@ export function PostHeader({ post, viewerName }: { post: Post; viewerName: strin
               )}
             </span>
             <span>{formatAgeLong(post.createdAt)}</span>
-            {own ? <span>edit</span> : <span>flag</span>}
+
+            {own ? (
+              // The window is stated rather than discovered, so you know before you start typing.
+              <span>{editLeft ? `edit (${editLeft})` : "edit closed"}</span>
+            ) : null}
+            {canDelete ? (
+              <Link
+                href={`/item?id=${post.id}&confirm=delete`}
+                scroll={false}
+                className="hover:underline"
+              >
+                delete
+              </Link>
+            ) : null}
+            {!own && canFlag ? <span>flag</span> : null}
+
             <span>
-              {post.commentCount === 0
-                ? "discuss"
-                : `${formatCount(post.commentCount)} ${post.commentCount === 1 ? "comment" : "comments"}`}
+              {formatCount(post.commentCount)} {post.commentCount === 1 ? "comment" : "comments"}
             </span>
             {post.isDead ? <span className="text-red">dead</span> : null}
           </p>
         </div>
       </div>
+
+      {confirmingDelete && canDelete ? <DeleteConfirm postId={post.id} /> : null}
 
       {/* A text post's body sits under the meta line, aligned past the vote column. Story text caps
           at 68ch rather than a comment's 70ch — DESIGN.md §Typography. */}

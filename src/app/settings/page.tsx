@@ -5,7 +5,7 @@ import { Notice } from "@/components/notice";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { CFG } from "@/lib/config";
 import { formatIsoDate } from "@/lib/format";
-import { getViewer } from "@/services/viewer";
+import { getViewer, SIGNED_OUT } from "@/services/viewer";
 
 /**
  * About text and the show-dead preference. Email and password are not here: Clerk owns identity
@@ -74,19 +74,67 @@ async function Form() {
 
 async function Account() {
   const viewer = await getViewer();
-  if (!viewer) return null;
 
   return (
-    <DatasheetTable
-      number={1}
-      title="Account"
-      rows={[
-        ["Username", viewer.user.username],
-        ["Joined", formatIsoDate(viewer.user.createdAt)],
-        ["Karma", String(viewer.user.karma)],
-        ["Moderator", viewer.user.isModerator ? "Yes" : "No"],
-      ]}
-      note="Username is permanent: it is your profile address and every byline you have written."
-    />
+    <>
+      {viewer ? (
+        <DatasheetTable
+          number={1}
+          title="Account"
+          rows={[
+            ["Username", viewer.user.username],
+            ["Joined", formatIsoDate(viewer.user.createdAt)],
+            ["Karma", String(viewer.user.karma)],
+            ["Moderator", viewer.user.isModerator ? "Yes" : "No"],
+          ]}
+          note="Username is permanent: it is your profile address and every byline you have written."
+        />
+      ) : null}
+      <ViewerSwitch current={viewer?.user.username ?? SIGNED_OUT} />
+    </>
+  );
+}
+
+/** One account per state worth looking at, named by the state rather than by the username. */
+const VIEWERS = [
+  { as: "mlin", label: "established" },
+  { as: "fernhill", label: "new account" },
+  { as: "moss", label: "moderator" },
+  { as: SIGNED_OUT, label: "signed out" },
+] as const;
+
+/**
+ * The fixture viewer switch. Six of M5's surfaces are states of *who is looking*, and without a
+ * control they would each need a code edit to look at — which means they would stop being checked.
+ *
+ * Phase 1 only, and labelled as such on the page rather than hidden, because an unexplained control
+ * that changes your identity is worse than no control. M10 deletes this with `/preview`.
+ */
+function ViewerSwitch({ current }: { current: string }) {
+  return (
+    <section className="mt-8">
+      <h2 className="type-section">Preview as</h2>
+      <p className="mt-1 type-meta text-meta">
+        A build-time switch over the sample accounts, so the new-account, moderator and signed-out
+        states can be read. It goes away with real sign-in.
+      </p>
+
+      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 type-meta">
+        {VIEWERS.map(({ as, label }) => (
+          <li key={as}>
+            {as === current ? (
+              <span className="font-semibold text-ink">{label}</span>
+            ) : (
+              <a
+                href={`/preview?as=${as}&to=%2Fsettings`}
+                className="text-petrol-ink underline underline-offset-2"
+              >
+                {label}
+              </a>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

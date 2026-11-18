@@ -20,6 +20,7 @@ function row(opts: { id?: number; parent?: Comment | null; score?: number; minut
     createdAt: new Date(Date.now() - (opts.minutesAgo ?? 0) * 60_000),
     isDead: false,
     isDeleted: false,
+    isShadow: false,
   };
 }
 

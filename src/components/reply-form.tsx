@@ -1,18 +1,39 @@
 /**
- * The reply box. It renders and the browser validates it, but it cannot persist until M11 brings
- * the server action — the service throws `NotImplementedInStaticPhase` by design, so phase 1 is
+ * The reply box. It renders and the browser validates it, but it cannot persist until M12 brings
+ * `createComment` — the service throws `NotImplementedInStaticPhase` by design, so phase 1 is
  * honest about what works.
  *
  * A plain form with no `onSubmit`, so it degrades to a normal POST once the action exists.
+ *
+ * `targetId` is submitted as a hidden field, and that is load-bearing today. With no `action`, a
+ * submit is a GET to the current path — which replaces the query string, drops `id`, and lands on
+ * a 404. Carrying the id means an early submit returns to the page it was typed on. M12's action
+ * needs the same field.
+ *
+ * `elementId` is a prop rather than a constant because M11 puts an inline reply box on every
+ * comment: two forms sharing one element id would point both labels at the first textarea.
  */
-export function ReplyForm({ label = "Add to the discussion", submit = "Add comment" }: { label?: string; submit?: string }) {
+export function ReplyForm({
+  targetId,
+  label = "Add to the discussion",
+  submit = "Add comment",
+  elementId = "reply-text",
+}: {
+  /** The post or parent comment this reply belongs to. */
+  targetId: number;
+  label?: string;
+  submit?: string;
+  elementId?: string;
+}) {
   return (
     <form className="mt-4 max-w-[795px]">
-      <label className="sr-only" htmlFor="reply-text">
+      <input type="hidden" name="id" value={targetId} />
+
+      <label className="sr-only" htmlFor={elementId}>
         {label}
       </label>
       <textarea
-        id="reply-text"
+        id={elementId}
         name="text"
         rows={4}
         required

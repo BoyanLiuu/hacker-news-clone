@@ -1,9 +1,6 @@
 import {
-  AXES,
   ISO_LINES,
   VIEWBOX,
-  X_TICKS,
-  Y_TICKS,
   dotRadius,
   isoLabel,
   isoPath,

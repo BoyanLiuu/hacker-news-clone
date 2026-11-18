@@ -1,16 +1,22 @@
+import { cookies } from "next/headers";
 import { cache } from "react";
 import { findUser } from "@/fixtures";
 import { CFG, DAY } from "@/lib/config";
 import type { User, ViewerOpts } from "@/lib/types";
 
 /**
- * Who is signed in. The second seam after the service layer: phase 1 returns a fixture user so the
+ * Who is signed in. The second seam after the service layer: phase 1 resolves a fixture user so the
  * own-item marker, "by you" bylines and the karma in the title block all have something real to
- * render. M10 replaces the body with Clerk's session and nothing above this changes.
- *
- * Returning null here is how you preview the signed-out reading paths.
+ * render. M10 replaces the body of `getViewer` with Clerk's session and nothing above this changes.
  */
-const FIXTURE_VIEWER = "mlin";
+const DEFAULT_VIEWER = "mlin";
+
+/**
+ * The cookie `/preview` sets, so the signed-out, new-account and moderator surfaces are reachable
+ * without editing code. Phase 1 only: M10 deletes this, the route, and the switcher on `/settings`.
+ */
+export const PREVIEW_COOKIE = "tally-preview-as";
+export const SIGNED_OUT = "signed-out";
 
 /**
  * The viewer plus what they are allowed to do.
@@ -31,7 +37,11 @@ export type Viewer = {
 };
 
 export const getViewer = cache(async (): Promise<Viewer | null> => {
-  const user = findUser(FIXTURE_VIEWER);
+  const requested = (await cookies()).get(PREVIEW_COOKIE)?.value;
+  if (requested === SIGNED_OUT) return null;
+
+  // An unknown name falls back rather than signing you out, so a stale cookie cannot strand you.
+  const user = findUser(requested ?? DEFAULT_VIEWER) ?? findUser(DEFAULT_VIEWER);
   if (!user) return null;
 
   const accountAgeDays = Math.floor((Date.now() - user.createdAt.getTime()) / DAY);

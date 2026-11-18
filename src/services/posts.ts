@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { postById, posts } from "@/fixtures";
-import { CFG, DAY } from "@/lib/config";
+import { CFG, DAY, HOUR } from "@/lib/config";
 import { ageHoursBetween, isCandidate, pointsAt, rank } from "@/lib/rank";
 import { NotImplementedInStaticPhase, type Page, type Post, type ScoredPost, type ViewerOpts } from "@/lib/types";
 import { reachableAtPermalink, visiblePost } from "./visibility";
@@ -69,13 +69,54 @@ export async function getPostsByAuthor(username: string, opts: ViewerOpts): Prom
   return listNewest(opts, (p) => p.author === username);
 }
 
-/** True when this URL was already posted inside the duplicate window — M11 redirects to it. */
+/** True when this URL was already posted inside the duplicate window — M12 redirects to it. */
 export async function findDuplicate(url: string, opts: ViewerOpts): Promise<Post | null> {
   const cutoff = Date.now() - CFG.dupDays * DAY;
   return (
     posts.find((p) => p.url === url && p.createdAt.getTime() >= cutoff && visiblePost(p, opts)) ?? null
   );
 }
+
+/**
+ * How much of the hourly submission allowance the viewer has spent.
+ *
+ * Counted over a rolling hour, so the allowance returns one slot at a time rather than resetting in
+ * a batch on the hour — a batch reset invites everyone to queue for it. Deleted and dead posts still
+ * count: deleting a submission must not refund the attempt, or the limit buys nothing.
+ *
+ * M12 replaces the body with a count over `Post`, and enforces it inside the action. This is the
+ * read the form needs to say so before you type.
+ *
+ * Cached per request because `/submit` asks twice — the form, for the notice, and the rules aside,
+ * for the "this hour" row. `getViewerOpts` is itself cached, so both callers pass one object.
+ */
+export type SubmitQuota = {
+  used: number;
+  limit: number;
+  /** When the next slot frees, or null when none is spent. */
+  resetAt: Date | null;
+};
+
+export const getSubmitQuota = cache(async (opts: ViewerOpts): Promise<SubmitQuota> => {
+  if (!opts.userId) return { used: 0, limit: CFG.ratePerHour, resetAt: null };
+
+  const since = Date.now() - HOUR;
+  let used = 0;
+  let oldest = Infinity;
+  for (const post of posts) {
+    if (post.author !== opts.userId) continue;
+    const at = post.createdAt.getTime();
+    if (at < since) continue;
+    used += 1;
+    if (at < oldest) oldest = at;
+  }
+
+  return {
+    used,
+    limit: CFG.ratePerHour,
+    resetAt: used > 0 ? new Date(oldest + HOUR) : null,
+  };
+});
 
 /* Mutations are declared so callers can be written against them now. Forms render and validate;
    they cannot persist until M7 brings the database. */
