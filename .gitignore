@@ -45,3 +45,4 @@ next-env.d.ts
 # Prisma's generated client. It lands in a project path (see prisma/schema.prisma `output`), so it
 # would otherwise be committed; `postinstall: prisma generate` rebuilds it on every install.
 /src/generated
+.playwright-mcp/

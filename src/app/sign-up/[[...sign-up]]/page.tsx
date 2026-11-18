@@ -1,7 +1,6 @@
 import { SignUp } from "@clerk/nextjs";
 import { Suspense } from "react";
 import { PageShell } from "@/components/page-shell";
-import { tallyAppearance } from "@/components/clerk-appearance";
 
 /**
  * Inside the app shell, not a bare centred card: the header and the document line are what make
@@ -14,7 +13,7 @@ export default function Page() {
     <PageShell nav="" section="sign-up">
       <div className="mt-6 flex justify-center">
         <Suspense fallback={<p className="type-meta text-meta">Loading…</p>}>
-          <SignUp appearance={tallyAppearance} />
+          <SignUp />
         </Suspense>
       </div>
     </PageShell>

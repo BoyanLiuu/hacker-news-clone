@@ -6,8 +6,13 @@ import { Notice } from "@/components/notice";
 import { claimUsername } from "@/services/onboarding";
 
 /**
- * The rules are stated before you type rather than after you fail, and the value you typed survives
- * a rejection — the same contract as `/submit`.
+ * The rules are stated before you type rather than after you fail, and the value survives a
+ * rejection — `field.tsx`'s contract, the same as `/submit`.
+ *
+ * `defaultValue` is what preserves it, which only works because React resets an uncontrolled form
+ * once the action resolves: the reset puts the field back to `defaultValue`, and by then
+ * `result.tried` holds what was typed. A plain `value` here would need an onChange and make this a
+ * controlled form for no gain.
  */
 export function ClaimForm() {
   const [result, submit, pending] = useActionState(claimUsername, undefined);
@@ -29,6 +34,7 @@ export function ClaimForm() {
           autoCapitalize="none"
           spellCheck={false}
           required
+          defaultValue={result?.tried ?? ""}
           className={textInputClass(Boolean(result?.error))}
         />
       </Field>

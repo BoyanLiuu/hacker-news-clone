@@ -1,3 +1,9 @@
+/* Clerk's own styles, declared first so every Tailwind layer outranks them.
+   Unlayered CSS beats *any* cascade layer, so without this the `elements` classes in
+   `clerk-appearance.ts` lose to Clerk's internal rules even though they load later — measured:
+   `bg-ink` on the submit button computed as petrol. `appearance.cssLayerName` puts Clerk here. */
+@layer clerk;
+
 @import "tailwindcss";
 
 /* Design System: Tally — tokens from docs/project-idea/28-hacker-news-clone/impeccable/DESIGN.md.
