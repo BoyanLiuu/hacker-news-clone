@@ -178,6 +178,37 @@
   }
 }
 
+/* The comment tree indents 12px of margin plus 22px of padding behind a 1px row-rule spine per
+   level — 6px plus 12px on phones. The spine is what makes depth readable without a card. */
+@utility comment-children {
+  margin-left: 12px;
+  padding-left: 22px;
+  border-left: 1px solid var(--color-rule-2);
+
+  @media (max-width: 640px) {
+    margin-left: 6px;
+    padding-left: 12px;
+  }
+}
+
+/* Long threads: skip the work of laying out what is off-screen. The intrinsic size is a typical
+   two-line comment, so the scrollbar stays honest. */
+@utility comment-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 112px;
+}
+
+/* Collapse hides the body, the footer, the replies and the vote column; the header stays so the
+   row can be reopened. Driven by a data attribute, so the tree itself stays server-rendered HTML.
+
+   A descendant selector, not a child one: the body and vote column sit inside the row's flex
+   wrapper rather than directly under the article. Matching nested articles too is harmless —
+   anything inside a collapsed ancestor is hidden by that ancestor anyway. */
+[data-collapsed="true"] .collapsible {
+  display: none;
+}
+
+
 /* The Rules Not Lift Rule: structure is drawn with rules, never shadow.
    1.5px ink opens a table or list, 1px ink closes it, 1px rule-2 divides inside it. */
 @utility rule-open {

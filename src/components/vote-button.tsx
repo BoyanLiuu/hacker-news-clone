@@ -6,6 +6,31 @@
  * DESIGN.md §Vote Button. The pressed, pending, confirmed and rolled-back states arrive with the
  * real action in M12; this milestone delivers the glyph, the hit area and the hover.
  */
+/**
+ * The downvote is the same glyph rotated 180 degrees, and only appears on comments for a viewer
+ * past the karma threshold. The gating itself is enforced server-side in M12; this decides whether
+ * the control is offered at all.
+ */
+export function DownVoteButton({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Downvote ${label}`}
+      className="group flex size-[26px] items-center justify-center rounded-soft hover:bg-petrol/7"
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="rotate-180">
+        <path
+          d="M6 2 L11 10 L1 10 Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-meta group-hover:text-ink"
+        />
+      </svg>
+    </button>
+  );
+}
+
 export function VoteButton({ label, own }: { label: string; own: boolean }) {
   if (own) {
     return (

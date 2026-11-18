@@ -102,6 +102,16 @@ for (let r = 0; r < 34 && generated < 320; r++) {
   generated += grow(root.id, root.path, 1, 320 - generated);
 }
 
+// A deliberate XSS probe, so the formatter's guarantee is visible in the running app and not only
+// in unit tests. If any of this ever renders as markup rather than text, the thread page shows it.
+add(null, null, 0);
+generated++;
+comments[comments.length - 1].text =
+  'Testing the formatter: <script>alert(1)</script> and <img src=x onerror=alert(1)> should both be text.\n\n' +
+  'Links work: https://example.com/a?b=1 — but javascript:alert(1) must not become one.\n\n' +
+  'Markers: *italics*, `code`, and `SELECT * FROM t` keeps its asterisk.\n\n' +
+  '  indented lines\n  stay verbatim as a block';
+
 // One deliberate chain past the depth cap, so "continue this thread" has a real target.
 let chain = add(null, null, 0);
 generated++;

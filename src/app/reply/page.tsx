@@ -1,0 +1,114 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { CommentTree } from "@/components/comment-node";
+import { DatasheetTable } from "@/components/datasheet-table";
+import { PageShell } from "@/components/page-shell";
+import { ReplyForm } from "@/components/reply-form";
+import { formatAgeLong } from "@/lib/format";
+import { CFG } from "@/lib/config";
+import { countDescendants } from "@/lib/tree";
+import { getSubtree } from "@/services/comments";
+import { getPostById } from "@/services/posts";
+import { getViewer, getViewerOpts } from "@/services/viewer";
+
+type Search = Promise<{ id?: string }>;
+
+/**
+ * A comment permalink: the comment, its subtree, and a breadcrumb of ancestors so the reader can
+ * see what it is replying to. This is where "continue this thread" lands when a subtree passes the
+ * depth cap, so the tree re-roots here and depth starts counting again from this comment.
+ */
+export default function ReplyPage({ searchParams }: { searchParams: Search }) {
+  return (
+    <PageShell
+      nav=""
+      section={searchParams.then((p) => (p.id ? `comment ${p.id}` : "comment"))}
+      aside={<PermalinkAside searchParams={searchParams} />}
+    >
+      <Suspense fallback={<p className="type-meta text-meta">Loading the comment…</p>}>
+        <Permalink searchParams={searchParams} />
+      </Suspense>
+    </PageShell>
+  );
+}
+
+async function Permalink({ searchParams }: { searchParams: Search }) {
+  await connection();
+
+  const [params, viewer, opts] = await Promise.all([searchParams, getViewer(), getViewerOpts()]);
+  const id = Number(params.id);
+  if (!Number.isInteger(id)) notFound();
+
+  const found = await getSubtree(id, opts);
+  if (!found) notFound();
+
+  const { ancestors, node } = found;
+  const post = await getPostById(node.postId, opts);
+
+  return (
+    <>
+      {/* The breadcrumb is the context a permalink would otherwise lose. */}
+      <nav aria-label="Context" className="flex flex-wrap items-baseline gap-x-2 type-meta text-meta">
+        <Link href={`/item?id=${node.postId}`} className="font-semibold text-ink hover:underline">
+          {post ? post.title : "the thread"}
+        </Link>
+        {ancestors.map((ancestor) => (
+          <span key={ancestor.id} className="flex items-baseline gap-x-2">
+            <span aria-hidden="true">›</span>
+            <Link href={`/reply?id=${ancestor.id}`} className="text-ink-2 hover:underline">
+              {ancestor.isDeleted ? "[deleted]" : ancestor.author}
+            </Link>
+          </span>
+        ))}
+        <span aria-hidden="true">›</span>
+        <span>{node.isDeleted ? "[deleted]" : node.author}</span>
+      </nav>
+
+      <h1 className="sr-only">
+        Comment by {node.author}, {formatAgeLong(node.createdAt)}
+      </h1>
+
+      <div className="mt-2 rule-open">
+        {/* baseDepth re-roots the cap: arriving here from "continue this thread" must not
+            immediately hit the cap again, or the reader cannot get any deeper. */}
+        <CommentTree
+          nodes={[node]}
+          ctx={{
+            opAuthor: post?.author ?? "",
+            viewerName: opts.userId,
+            baseDepth: node.depth,
+            canDownvote: (viewer?.user.karma ?? 0) >= CFG.downvoteKarma,
+          }}
+        />
+      </div>
+
+      <ReplyForm label="Reply to this comment" submit="Reply" />
+    </>
+  );
+}
+
+async function PermalinkAside({ searchParams }: { searchParams: Search }) {
+  await connection();
+
+  const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
+  const id = Number(params.id);
+  if (!Number.isInteger(id)) return null;
+
+  const found = await getSubtree(id, opts);
+  if (!found) return null;
+
+  return (
+    <DatasheetTable
+      number={1}
+      title="About this comment"
+      rows={[
+        ["Depth in thread", String(found.node.depth)],
+        ["Ancestors", String(found.ancestors.length)],
+        ["Replies below", String(countDescendants(found.node))],
+      ]}
+      note="Depth counts from the top of the thread. The cap restarts from this comment."
+    />
+  );
+}

@@ -15,7 +15,7 @@ export function DatasheetTable({
 }: {
   number: number;
   title: string;
-  rows: ReadonlyArray<readonly [string, React.ReactNode]>;
+  rows: ReadonlyArray<readonly [React.ReactNode, React.ReactNode]>;
   note?: React.ReactNode;
 }) {
   return (
@@ -28,7 +28,7 @@ export function DatasheetTable({
       <table className="mt-2 w-full border-collapse text-[13px] rule-open">
         <tbody>
           {rows.map(([label, value], i) => (
-            <tr key={label} className={i === rows.length - 1 ? "rule-close" : "rule-divide"}>
+            <tr key={i} className={i === rows.length - 1 ? "rule-close" : "rule-divide"}>
               <th scope="row" className="px-2 py-[7px] text-left font-normal text-ink-2">
                 {label}
               </th>

@@ -21,6 +21,24 @@ export function formatAge(createdAt: Date, now: Date = new Date()): string {
   return `${Math.round(hours / 24)} d`;
 }
 
+/**
+ * The long form, for threads: "5 hours ago". Listings use the terse form because the age sits in a
+ * 52 px column; a thread has room for a sentence and reads better for it.
+ */
+export function formatAgeLong(createdAt: Date, now: Date = new Date()): string {
+  const minutes = Math.max(0, Math.round((now.getTime() - createdAt.getTime()) / 60_000));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} ${plural(minutes, "minute")} ago`;
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} ${plural(hours, "hour")} ago`;
+
+  const days = Math.round(hours / 24);
+  return `${days} ${plural(days, "day")} ago`;
+}
+
+const plural = (n: number, word: string) => (n === 1 ? word : `${word}s`);
+
 /** The ranked time in the document line is a machine fact, so it is always UTC. */
 export function formatUtcTime(at: Date): string {
   return at.toISOString().slice(11, 19);

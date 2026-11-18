@@ -11,8 +11,8 @@ Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, 
 | **M0 — Scaffold and design tokens** | **Done** |
 | **M1 — Fixtures and the service boundary** | **Done** |
 | **M2 — Listings** | **Done** |
-| M3 — Thread and comment tree | Next |
-| M4 — Figure 1 | |
+| **M3 — Thread and comment tree** | **Done** |
+| M4 — Figure 1 | Next |
 | M5 — Forms, profiles, moderation views, error states | |
 | M6 — Motion pass | |
 
@@ -249,3 +249,102 @@ attributes. Fixing it means a CSS-only reflow, which carries visual risk and no 
 in the app explains itself. `pageOutOfRange()` and `OutOfRange` in `pager.tsx` now give it a message
 and a way back, on all three paginated listings. It stays distinct from an empty list, which needs a
 different explanation — `/from?site=example.com` still says "Nothing from example.com yet".
+
+---
+
+## M3 — Thread and comment tree · Done
+
+Surfaces: `ux-4-thread`, `ux-5-thread-collapsed`, `ux-6-thread-depth-cap`, `ux-7-comment-permalink`,
+`ux-33-thread-reply`, `ux-35-deleted-comment`, `ux-29-dead-permalink`
+
+**Objective.** A 334-comment thread renders at the right depths from one document request, the depth
+cap is escapable, and comment text can never become markup.
+
+**Guidance.**
+- `src/lib/markdown.ts` — paragraphs, `*italics*`, `` `code` ``, two-space-indented blocks,
+  autolinked URLs. **Parses to a token tree; the renderer emits React elements.** There is no
+  `dangerouslySetInnerHTML` anywhere, so a `<script>` in a comment is text by construction rather
+  than by remembering to escape it.
+- `src/components/comment-node.tsx` — recursive server rendering, indent spine, depth cap, OP chip,
+  own-score-only rule, `[deleted]` handling.
+- `src/components/collapse-toggle.tsx` — the one client component, per comment.
+- `src/components/{comment-body,post-header,reply-form}.tsx`
+- `src/app/item/page.tsx`, `src/app/reply/page.tsx` — thread and comment permalink.
+- `globals.css` — the indent spine, `content-visibility` on comment rows, the collapse rule.
+
+**Test requirements.** 9 added, 37 total. The formatter carries most of them because it is the only
+place user input becomes output.
+
+| Test | Bug it catches |
+|---|---|
+| HTML stays text | a stored `<script>` executing for every reader of the thread |
+| no non-http scheme linkified | `javascript:` or `data:` becoming a clickable href |
+| href equals visible text | a link claiming to go somewhere it does not |
+| markers literal inside code | `SELECT *` losing its asterisk, so copied code is wrong |
+| indented block kept verbatim | pasted code reflowed as prose |
+| lone marker stays text | an unterminated `*` eating the rest of the comment |
+| paragraphs split on blank lines | a multi-paragraph comment collapsing into one block |
+
+**Integrates with.** M1's `getThread` and `getSubtree`, which already existed and were tested, so
+this milestone was rendering rather than data work. M2's shell, tokens and vote button.
+
+**Demo.** Measured against the reference screens:
+
+| Checked | Result |
+|---|---|
+| Big thread | 329 articles rendered + 4 behind one depth-cap link = 334 exactly |
+| Depth cap | one "continue this thread" link; `/reply?id=44351` resolves and re-roots so the cap restarts |
+| Authored thread | 39 comments, 5 OP chips, 28 parent links, own score on 2, code blocks and inline code |
+| Deleted comment | `[deleted]` shown, its reply retained |
+| XSS probe, end to end | zero `<img>` elements, no executable `<script>`, payload shown escaped, `javascript:` not linkified, `https://` linkified, italics and code correct |
+| Collapse | `+10 hidden` matches 10 descendants; vote column, body and replies hidden, header kept; 10 visible descendants → 0; page shorter; scroll unchanged; survives reload; other comments unaffected |
+
+**Four findings.**
+
+1. **A permanent XSS probe is now a fixture.** The plan asks you to paste `<script>` into a comment
+   and check it renders as text. That is a one-off, so the generator now emits a probe comment
+   carrying the payload plus a `javascript:` URL and an asterisk inside code. The guarantee is
+   visible in the running app, not only in unit tests.
+2. **The React compiler rejected `setState` in an effect**, correctly: reading `localStorage` on
+   mount and setting state cascades renders. `localStorage` is an external store, so the toggle uses
+   `useSyncExternalStore` with a server snapshot of "expanded".
+3. **The collapse CSS used a child selector and hid almost nothing.** Only the replies wrapper is a
+   direct child of the article; the body and vote column sit inside the row's flex wrapper. A
+   descendant selector is both correct and simpler, since anything inside a collapsed ancestor is
+   hidden by that ancestor anyway. Caught by measuring computed styles, not by looking at it.
+4. **An optimisation I was confident about measured worse, twice.** Replacing 330 per-comment client
+   components with one delegated controller plus CSS grew the 330-comment thread from **38.7 KB to
+   48.9 KB gzipped**; deduping the chevron with `<use>` recovered 0.5 KB of that. A client-component
+   reference with two props serialises more compactly than the equivalent server-rendered button
+   tree, and gzip already collapses the repetition. Reverted. The untested counter-argument is
+   hydration cost — 330 subscriptions rather than one — which nobody has measured, so it is recorded
+   rather than acted on.
+
+**Page weights, for M14.** Gzipped: front page 17.2 KB, 39-comment thread 20.7 KB, 334-comment
+thread 38.7 KB. Uncompressed the big thread is 1.5 MB, 56% of it RSC payload. The budget question
+from M2 — wire size or uncompressed — matters more here than anywhere.
+
+**Deferred to M4.** The thread's own Figure 1, points and rank since posting, which `ux-4` shows in
+the aside. It is charting work and belongs with the other figures. Table 1, thread contents, is built.
+
+**Commit.** `feat: Add comment tree with collapse, depth cap and permalinks` — not committed yet.
+
+### M3 review pass — findings recorded, not applied
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`. Committed as-is; these three are
+open.
+
+1. **`countDescendants` runs once per node, which is quadratic in depth.** Measured: 750 node visits
+   for the real 334-comment thread (2.2×), but **499,500 for a 1000-comment single chain (500×)**.
+   Negligible today and a problem for M14's 1000-comment target, since the depth cap does not bound
+   it — the count walks the full subtree regardless. Fix is one post-order pass in `buildTree` so
+   each node carries its own count, which also takes the call off the render path.
+2. **`preview()` builds two regexes per call** (`item/page.tsx`), twelve rows per thread. Hoist them.
+3. **`ReplyForm` uses a fixed `id="reply-text"`.** Correct while one form renders per page; it breaks
+   the moment an inline per-comment reply form exists, which is what `ux-33-thread-reply` shows and
+   M11 will build — duplicate ids point every label at the first textarea. `useId()` fixes it.
+
+Not defects: `getThread` is called twice per request (page and aside) and deduped by `cache()`, so
+M1's caching pays for itself here without anyone thinking about it; and the module-level `snapshot`
+in the collapse store is safe because `read()` never runs on the server, where `getServerSnapshot`
+is used instead.
