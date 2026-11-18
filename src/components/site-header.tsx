@@ -1,5 +1,11 @@
 import Link from "next/link";
 
+/**
+ * Pinned locale. A bare toLocaleString() formats against the server's locale, so the thousands
+ * separator would vary by host — and DESIGN.md pins every figure to tabular lining numerals.
+ */
+const COUNT = new Intl.NumberFormat("en-US");
+
 const NAV = [
   { href: "/", label: "Front" },
   { href: "/newest", label: "Newest" },
@@ -75,7 +81,7 @@ export function SiteHeader({ current, viewer, doc }: { current: string; viewer: 
                 <Link href={`/user/${viewer.name}`} className="font-semibold text-ink">
                   {viewer.name}
                 </Link>
-                <span className="text-petrol-ink">{viewer.karma.toLocaleString()}</span>
+                <span className="text-petrol-ink">{COUNT.format(viewer.karma)}</span>
                 <Link href="/settings" className="text-ink-2">
                   Settings
                 </Link>

@@ -9,8 +9,8 @@ Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, 
 | Milestone | Status |
 |---|---|
 | **M0 — Scaffold and design tokens** | **Done** |
-| M1 — Fixtures and the service boundary | Next |
-| M2 — Listings | |
+| **M1 — Fixtures and the service boundary** | **Done** |
+| M2 — Listings | Next |
 | M3 — Thread and comment tree | |
 | M4 — Figure 1 | |
 | M5 — Forms, profiles, moderation views, error states | |
@@ -58,3 +58,97 @@ the nav moves to a horizontally scrolling 40 px second row on phones, which I ha
 document line now scrolls rather than wraps, so it holds its 30 px height.
 
 **Commit.** `chore: Scaffold app with Tally design tokens and shell` — not committed yet.
+
+---
+
+## M1 — Fixtures and the service boundary · Done
+
+**Objective.** Every screen that follows can read posts, comments and users through signatures that
+will not change when Postgres arrives in M7.
+
+**Guidance.**
+- `scripts/gen-fixtures.cjs` (`pnpm gen:fixtures`) — extracts the approved prototype's `P`, `C` and
+  `USERS` literals and emits typed modules. The data is lifted, not retyped, so the screens in M2–M5
+  match their reference PNGs instead of drifting.
+- `src/fixtures/{posts,comments,users}.ts` — 69 posts, 14 users, 391 comments. **Comments are flat rows
+  carrying `path` and `depth`**, exactly as Postgres will return them, so M7 swaps a body and no shape.
+- `src/fixtures/index.ts` — maps raw rows to models at load; relative ages become timestamps so the
+  ranking and the age column stay alive while you work.
+- `src/lib/{types,config,rank,path,tree,domain}.ts` — the contract, the constants, the decay function,
+  zero-padded ancestry, single-pass tree assembly, registrable-domain extraction.
+- `src/services/{posts,comments,users,visibility}.ts` — all `async`, all taking `ViewerOpts`.
+  Visibility (dead, deleted, shadow-banned) is written here so M7 inherits it.
+- Mutations declared, throwing `NotImplementedInStaticPhase`.
+
+**Test requirements.** 26 tests across 4 files, each naming the bug it catches.
+
+| Test | Bug it catches |
+|---|---|
+| `rank` at hand-computed inputs | a sign or precedence slip silently reordering the front page |
+| gravity sharpens decay | gravity wired as a multiplier, so tuning it does nothing |
+| `isCandidate` window edges | an off-by-one letting the whole table into the front-page sort |
+| future-dated posts excluded | a negative age inflating the score above everything |
+| subtree with an absent parent | an orphaned comment dropping a live subtree from the render |
+| siblings sort within their parent | sorting across parents interleaving unrelated branches |
+| score ties break by oldest | an unstable sort reshuffling a thread on every reload |
+| path padding | comment 10 sorting before comment 9, reordering every thread |
+| `bbc.co.uk` not `co.uk` | unrelated sites merged onto one `/from` page |
+| dead post hidden in listings, live at permalink | a flag doing nothing, or breaking existing links |
+| shadow-banned comment visibility | content leaking to signed-out readers, defeating the ban |
+| deleted comment retained in tree | filtering it out and orphaning its replies |
+
+**Integrates with.** M0's shell. `/m1` composes the services; `src/app/page.tsx` is untouched and is
+what M2 replaces with real rows.
+
+**Demo.** `/m1`, deliberately unstyled:
+- 68 of 69 posts are candidates — the dead one is filtered for a signed-out reader
+- ranked page 1 returns 30 of 68 with `hasNext`, scores falling monotonically
+- ranking diverges from recency: ranked #1 is 5.2 h old, newest #1 is 0.6 h, different posts
+- the debrief's case holds: a 1.4 h / 64-point post outranks an 11.2 h / 302-point post
+- thread 38214 returns 311 rows, assembling to 36 roots, deepest depth 12 against a cap of 8
+- the depth-8 permalink resolves with 8 ancestors
+
+**Three findings.**
+
+1. **The plan's check could not be met as written.** It calls for a 300-comment thread; the authored
+   data tops out at 45. The generator now adds ~270 clearly-labelled filler comments to one thread,
+   keeping the 123 authored ones for design fidelity.
+2. **The first generated thread was upside down** — 120 comments at depth 12, 12 at depth 0. Real
+   threads are top-heavy, and M3 renders against this. Fan-out now decays with depth: 36 roots,
+   peaking at depth 2–3, with one deliberate chain to depth 12 so "continue this thread" has a target.
+3. **Next 16 will not prerender a page that reads `now()`**, and the ranking is a function of `now()`.
+   `cacheComponents` is on in this scaffold, so `dynamic = "force-dynamic"` is rejected outright; the
+   fix is a static shell with the request-time read behind `Suspense` plus `await connection()`.
+   **M2's real front page needs this same shape, with the skeleton rows as its fallback**
+   (`ux-25-loading`) — which is what DESIGN.md's skeleton-on-the-live-grid rule already asks for.
+
+Also dropped two dev dependencies: Vite resolves tsconfig paths natively, so `vite-tsconfig-paths`
+and `@vitejs/plugin-react` are gone.
+
+**Commit.** `feat: Add typed fixtures and the service boundary` — not committed yet.
+
+### M1 review pass
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`. Eight findings, all applied; the
+`/m1` output is identical afterwards, which is the check that matters for a refactor.
+
+- **Waterfall removed.** Seven independent reads in `/m1` ran sequentially; they now share one
+  `Promise.all`, with only the dependent permalink read after it (`async-parallel`). ARCHITECTURE §5
+  already specified this for the thread page, so the code had been contradicting its own design.
+- **`React.cache()` on the expensive reads** (`server-cache-react`), which ARCHITECTURE §5 calls for.
+  It also fixes real duplicate work: `/m1` was computing the ranking twice, and `getThread` now
+  assembles the rows `getThreadRows` already returned instead of filtering and sorting 391 comments
+  a second time.
+- **`findUser` no longer scans.** It ran two linear scans over 69 posts and 391 comments on every
+  miss, and visibility calls it for every post and every comment. Unknown names are now one `Set`
+  lookup and derived profiles are memoised.
+- **`votes.ts` and `flags.ts` split out of `users.ts`**, matching ARCHITECTURE Appendix F — voting
+  and moderation were never user operations.
+- **One `listNewest` helper** replaces three copies of "visible posts, newest first".
+- `CFG.dupDays * DAY` instead of an inline `3600_000`.
+- `maxDepth` walks instead of allocating a flattened copy; `/m1` calls it three times.
+- `ANONYMOUS` is frozen, and karma uses a pinned `en-US` formatter rather than the server's locale.
+
+No measurable speed change at this data size — 311 comments and 69 posts are too small to show it.
+The fixes are structural: this is the layer M14 has to reach 200 ms p95 through, and M2 and M3 copy
+these shapes.
