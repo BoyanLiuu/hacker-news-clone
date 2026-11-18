@@ -5,6 +5,7 @@ Design: `../docs/project-idea/28-hacker-news-clone/impeccable/DESIGN.md` + 36 `u
 Architecture: `../docs/project-idea/28-hacker-news-clone/ARCHITECTURE.md`
 
 Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, no sign-in.
+Phase 2 begins at M7, which moves the data layer to Postgres without changing a service signature.
 
 | Milestone | Status |
 |---|---|
@@ -15,6 +16,7 @@ Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, 
 | **M4 — Figure 1** | **Done** |
 | M5 — Forms, profiles, moderation views, error states | **Done — 16 of 17; `ux-24` blocked on M9** |
 | M6 — Motion pass | **Done — 4 of 6 CSS items; 2 moved to M15 with their targets** |
+| M7 — Supabase and Prisma | **Partial — database live; services still on fixtures** |
 
 ---
 
@@ -782,3 +784,90 @@ The root layout reads a cookie now, so every route is `ƒ` — which they alread
 changed shape. Confirmed in the build output.
 
 **Commit.** `feat: Add stepped motion per the design doctrine`
+
+---
+
+## M7 — Supabase and Prisma · Partial (database live, services still on fixtures)
+
+**Objective.** Move the data layer to Postgres behind the service boundary Appendix C defines, so the
+screens built in phase 1 keep working with their implementations swapped underneath.
+
+**Guidance.**
+- `prisma/schema.prisma` — Appendix D's models, plus the relation fields it omits (Prisma needs them to
+  express a join, and every read wants an author's username) and `isShadow`, which the code has had
+  since M5. Appendix D now records that field too.
+- `prisma/migrations/20261118095214_init/` — generated offline with `migrate diff --from-empty`, so the
+  SQL existed and was reviewable before any database did. RLS is in the same migration, not a follow-up,
+  so the tables are never briefly readable.
+- `prisma.config.ts` — `DIRECT_URL`, the session pooler, for migrate only.
+- `src/lib/db.ts` — `DATABASE_URL` through the `PrismaPg` adapter, with a bounded pool.
+- `scripts/verify-rls.mjs` + `pnpm verify:rls` — asks Postgres, not the migration.
+
+**Test requirements.** 4 new tests, 61 total. The schema ones assert invariants that nothing else in
+the build would catch:
+
+| Test | Bug it catches |
+|---|---|
+| RLS on every model | a table added in M11 or M13 shipping world-readable |
+| no `url` in the datasource block | a Prisma 7 rejection "fixed" by downgrading Prisma |
+| `@@index([postId, path])` present | §6.2's one thread query degrading to a sequential scan |
+| connection strings absent from the schema | the same, from the other direction |
+
+**Integrates with.** Nothing above `src/services/` yet — that is the remaining half of the milestone.
+
+**Demo.** `pnpm db:deploy` applied the migration over the session pooler. `pnpm verify:rls`:
+
+| | |
+|---|---|
+| managed tables | 7 |
+| RLS enabled on all | true |
+| policy-free on all | true |
+| `_prisma_migrations` | correctly skipped — migrate must read and write it |
+
+**Three traps, two of them other people's and one of my own making:**
+
+1. **`prisma@latest` is a release candidate.** `npm view prisma dist-tags` gives `latest: 8.0.0-rc.34`
+   and `prev: 7.10.1`. The plan warned about exactly this; pinned to 7.10.1 exactly, not a caret.
+2. **`postinstall` would have broken every fresh clone.** Prisma's documented `env()` helper resolves
+   eagerly and throws when the variable is missing, so `prisma generate` failed with no `.env` — and
+   `generate` is the postinstall, so `pnpm install` failed too. But reading `process.env` directly does
+   not work either, because Prisma evaluates the config file *before* loading `.env`, so every migrate
+   command then reports "datasource.url property is required". Resolved with Node's built-in
+   `process.loadEnvFile()` in a try/catch: `generate` works with no `.env`, and the migrate commands are
+   the ones that complain, which is when the URL is actually needed.
+3. **pnpm blocks Prisma's install scripts**, which is how it fetches the query engine. Allowlisted
+   `prisma` and `@prisma/engines` by name in `pnpm-workspace.yaml` rather than disabling the check.
+
+**The transaction pooler has never been reached, and that is now a recorded gap rather than a surprise
+for deployment day.** Port 6543 times out from this network while 5432 is open — verified with `nc`, and
+independently hit by a sibling project on the same pooler. So `DATABASE_URL` points at the *session*
+pooler locally, which is the one line of `.env` that differs from production. `.env.example` spells out
+both ports and which to switch.
+
+**That same sibling project supplied a bug I had already written.** `src/lib/db.ts` had no pool cap, so
+`pg` would have used its default of 10 — against a session pooler that allows **15 clients for the whole
+project**, while Next runs several render workers each holding its own pool. The constraint is
+`workers x max < 15`, not `max < 15`, and exceeding it fails every query with `(EMAXCONNSESSION)` while
+the app still renders its shell with all the data missing — so it reads as a UI bug. Now
+`DATABASE_POOL_MAX ?? 3`, with 6 for the transaction pooler when deployed. The numbers are measured
+there, not guessed: 6 still exhausted it and 2 did not.
+
+**Credential handling.** `.env` is gitignored and untracked, verified before anything was written to it.
+`.env.example` is the only committed env file and was diffed against the real `.env` to confirm the
+project ref, password and host do not appear in it.
+
+### M7 review pass (partial)
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`. Three findings, all fixed:
+
+1. **The Prisma CLI was in `dependencies`.** It is a build-time tool; the runtime closure does not need
+   the CLI or its engines. Moved to `devDependencies`.
+2. **`prisma.config.ts` named a seed script that does not exist.** `prisma db seed` would have failed on
+   a missing module, which reads as a broken setup rather than as M8's work not being done yet. Removed.
+3. `join(import.meta.dirname, ".")` — the `"."` did nothing.
+
+**Still to do in M7:** reimplement `src/services/*` over Prisma with signatures unchanged, hand-insert a
+reply to confirm `path` and `depth`, run the boundary check (stash the services back to fixtures and the
+UI should be identical), then delete `src/fixtures/`.
+
+**Commit.** `feat: Add the Prisma schema, migration and Supabase wiring`

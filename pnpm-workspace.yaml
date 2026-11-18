@@ -1,3 +1,9 @@
+# pnpm blocks dependency install scripts unless named here. Keeping it an allowlist rather than
+# turning the check off means each entry is a decision someone made on purpose.
 allowBuilds:
   sharp: false
   unrs-resolver: false
+  # Prisma's install step downloads the query engine binary for this platform. Without it
+  # `prisma generate` and every query fail at runtime, so it is required, not optional.
+  prisma: true
+  "@prisma/engines": true

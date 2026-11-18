@@ -1,0 +1,131 @@
+// Tally's data model — ARCHITECTURE Appendix D.
+//
+// Appendix D states the fields and the indexes; the relation fields below are added here because
+// Prisma needs them to express a join, and every service read wants an author's username alongside
+// the row. Nothing else departs from it.
+//
+// No `url` or `directUrl` in this block: Prisma 7 rejects them. The migrate URL lives in
+// `prisma.config.ts` and the runtime URL reaches the client through the PrismaPg driver adapter —
+// see `src/lib/db.ts`. Appendix D's wiring section says why.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ItemType {
+  POST
+  COMMENT
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  clerkId        String   @unique // Clerk owns identity + email
+  username       String   @unique // claimed at onboarding, permanent
+  about          String   @default("")
+  karma          Int      @default(0) // a cache; votes are the truth
+  isModerator    Boolean  @default(false)
+  isShadowBanned Boolean  @default(false)
+  showDead       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  posts    Post[]
+  comments Comment[]
+  votes    Vote[]
+  flags    Flag[]
+}
+
+model Post {
+  id           Int       @id @default(autoincrement())
+  authorId     Int
+  title        String // max 80 chars, enforced by Zod
+  url          String? // url XOR text
+  text         String?
+  domain       String? // registrable domain, derived on insert
+  scoreRaw     Int       @default(1)
+  commentCount Int       @default(0)
+  isDead       Boolean   @default(false)
+  isDeleted    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  editedAt     DateTime?
+
+  author   User        @relation(fields: [authorId], references: [id])
+  comments Comment[]
+  ranked   RankedPost?
+
+  @@index([createdAt(sort: Desc)]) // /newest
+  @@index([domain, createdAt(sort: Desc)]) // /from + duplicate detection
+  @@index([authorId]) // a profile's submissions
+}
+
+model Comment {
+  id         Int      @id @default(autoincrement())
+  postId     Int
+  parentId   Int? // the truth
+  authorId   Int
+  text       String
+  path       String // the index: "0000041187.0000041194"
+  depth      Int
+  scoreRaw   Int      @default(1)
+  childCount Int      @default(0)
+  isDead     Boolean  @default(false)
+  isDeleted  Boolean  @default(false)
+  isShadow   Boolean  @default(false) // this row hidden, independent of its author's ban
+  createdAt  DateTime @default(now())
+
+  post     Post      @relation(fields: [postId], references: [id])
+  author   User      @relation(fields: [authorId], references: [id])
+  parent   Comment?  @relation("Replies", fields: [parentId], references: [id])
+  children Comment[] @relation("Replies")
+
+  @@index([postId, path]) // the one query that loads a thread
+  @@index([path]) // subtree fetch for permalinks
+  @@index([authorId]) // a profile's comments
+}
+
+model Vote {
+  userId    Int
+  itemType  ItemType // POST | COMMENT
+  itemId    Int
+  value     Int // +1 or -1
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, itemType, itemId]) // makes voting idempotent
+}
+
+model Flag {
+  userId    Int
+  itemType  ItemType
+  itemId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, itemType, itemId])
+}
+
+model RankedPost {
+  postId     Int      @id
+  score      Decimal
+  computedAt DateTime
+
+  post Post @relation(fields: [postId], references: [id])
+
+  @@index([score(sort: Desc)]) // the front page's only sort
+}
+
+// Only if /front/:date survives — ARCHITECTURE Appendix G, Q4. Kept in the first migration because
+// adding a table later is cheap and M8's seed wants somewhere to put a back-dated front page.
+model FrontSnapshot {
+  date   DateTime
+  postId Int
+  rank   Int
+
+  @@id([date, postId])
+}

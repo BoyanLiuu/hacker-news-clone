@@ -5,6 +5,8 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // `prisma/` too: the schema and its migrations carry invariants worth asserting
+    // (RLS per table, the thread index), and they do not live under src/.
+    include: ["src/**/*.test.ts", "prisma/**/*.test.ts"],
   },
 });
