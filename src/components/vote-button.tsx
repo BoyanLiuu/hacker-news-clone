@@ -33,10 +33,8 @@ export function DownVoteButton({ label }: { label: string }) {
  * `vote-glyph` on the triangle, and is otherwise a server-rendered button with no state of its own.
  * M11 brings the action that sets the attribute.
  *
- * The idle triangle is `fill="transparent"`, not `fill="none"`. Both draw an unfilled glyph, but
- * `none` is not a colour and so cannot interpolate: with it, the voted stroke stepped over 120 ms
- * while the fill snapped at 0 ms, splitting one glyph into two animations. Measured, not assumed —
- * a declared `transition-property` on a non-interpolatable property is silently inert.
+ * `fill="transparent"`, not `fill="none"`: `none` is not a colour and cannot interpolate, so the
+ * stroke stepped over 120 ms while the fill snapped at 0 ms.
  */
 export function VoteButton({ label, own }: { label: string; own: boolean }) {
   if (own) {

@@ -4,19 +4,11 @@ import Link from "next/link";
  * The inline confirm for deleting your own post, in the red destructive tone — DESIGN.md's State
  * Colour Rule, where red means error, dead or destructive and appears nowhere else.
  *
- * Inline rather than a dialog, and driven by the URL rather than client state, for three reasons:
- * the sentence that matters ("it will be removed for everyone") sits beside the thing it describes,
- * the confirm survives a reload, and it works with no JavaScript. `Keep it` is a link back to the
- * clean URL, so dismissing costs no script either.
+ * URL-driven rather than client state, so it survives a reload and needs no JavaScript. Not a
+ * `Notice`: a notice reports a state, this asks a question and carries both answers.
  *
- * Not a `Notice`: a notice reports a state, this asks a question and carries the two answers. It
- * also has no icon, because the red ground and the verb already say what it is.
- *
- * The button cannot persist until M12 brings `deletePost` — the service throws
- * `NotImplementedInStaticPhase` by design, so phase 1 is honest about what works. The hidden `id`
- * is load-bearing meanwhile: with no `action`, a submit is a GET to the current path, which
- * replaces the query string and would drop `id` and land on a 404. Carrying it returns you to the
- * post with the confirm dismissed, which is also the right outcome for a delete that cannot run.
+ * The hidden `id` is load-bearing: with no `action`, a submit is a GET to the current path, which
+ * replaces the query string and would drop `id` into a 404. M12 brings `deletePost`.
  */
 export function DeleteConfirm({ postId }: { postId: number }) {
   return (

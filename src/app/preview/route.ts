@@ -3,21 +3,12 @@ import { db } from "@/lib/db";
 import { PREVIEW_COOKIE, SIGNED_OUT, SLOW_COOKIE } from "@/services/viewer";
 
 /**
- * The fixture viewer switch: `/preview?as=fernhill&to=/item%3Fid%3D38214`.
+ * The fixture viewer switch: `/preview?as=fernhill&to=/item%3Fid%3D38214`. Several surfaces are
+ * states of *who is looking*, and without this each needs a code edit to see.
  *
- * Six of M5's surfaces are states of *who is looking* — a new account cannot flag, a moderator sees
- * shadow-banned comments, a signed-out reader gets no form. Without a switch each one would need
- * a code edit to look at, so they would stop being checked.
- *
- * **Phase 1 only. M10 deletes this file**, along with the cookie read in `getViewer` and the
- * switcher on `/settings`. Three guards keep it from being a liability before then:
- *
- *   - `as` must be one of the fixture usernames, so nothing arbitrary reaches the cookie
- *   - `to` must be a same-origin absolute path, so this cannot be used as an open redirector
- *   - it answers 404 in a production build, so it cannot outlive the fixtures by accident
- *
- * It grants a view of synthetic data that already ships in the client bundle. Once Clerk owns the
- * session that stops being true, which is why M10 removes it rather than adapting it.
+ * **Phase 1 only — M10 deletes this file**, the cookie read in `getViewer`, and the `/settings`
+ * switcher. Guarded three ways meanwhile: `as` must match a real username, `to` must be a
+ * same-origin absolute path (not an open redirector), and it 404s in a production build.
  */
 /**
  * The allowlist is the usernames that actually exist, read per request rather than from a fixture
@@ -36,8 +27,8 @@ export async function GET(request: Request): Promise<Response> {
 
   const params = new URL(request.url).searchParams;
 
-  // `/preview?slow=on&to=/item?id=38214` — 16x every stepped transition, so a 120 ms two-step
-  // animation can actually be reviewed. Independent of `as`, so either can be set alone.
+  // 16x every stepped transition, so a 120 ms two-step animation can be reviewed at all.
+  // Independent of `as`, so either can be set alone.
   const slow = params.get("slow");
   if (slow === "on" || slow === "off") {
     const store = await cookies();

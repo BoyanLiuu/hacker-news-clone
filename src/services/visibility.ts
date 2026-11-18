@@ -10,13 +10,8 @@ import type { Comment, ViewerOpts } from "@/lib/types";
  *   - dead items are hidden from listings unless the viewer opted in, but stay at their permalink
  *   - a shadow-banned author's content is visible only to that author and to moderators
  *
- * Written once, here, and spread into every query rather than re-expressed per call site. A rule
- * that is stated in two places is a rule that will eventually be enforced in one.
- *
- * These were predicates over fixture rows in phase 1. Moving them into the `where` is the point of
- * the exercise: filtering in Postgres means a listing reads 30 rows instead of reading every row
- * and discarding most of them — and it is the same decision for correctness, because a filter the
- * database applies cannot be forgotten by a caller that assembles its own query.
+ * Stated once here and spread into every query: a filter the database applies cannot be forgotten
+ * by a caller assembling its own.
  */
 
 /** A shadow-banned author is visible to themselves and to moderators, and to nobody else. */

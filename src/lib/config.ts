@@ -7,9 +7,8 @@ export const CFG = {
   gravity: 1.8,
   pageSize: 30,
   /**
-   * Title length. Lives here rather than in the form because the rules aside on `/submit` is a
-   * server component: a value exported from a `"use client"` module reaches the server as a client
-   * reference, not a number, and interpolates as the stub's source text.
+   * Here, not in the form: a value exported from a `"use client"` module reaches a server component
+   * as a client reference, not a number, and interpolates as the stub's source text.
    */
   titleMax: 80,
   /** Visual cap only; the tree is stored to unlimited depth. */

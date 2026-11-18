@@ -7,18 +7,8 @@
  * as the small deterministic dataset, and this is the realistic one. Keeping both means the demo
  * thread and the unit tests do not depend on whatever the API returned today.
  *
- * ## Why Algolia rather than the Firebase API the plan names
- *
- * Firebase serves one item per request, so 2 000 stories and their replies is upwards of 60 000
- * round trips. Algolia's `/items/{id}` returns a story with its **whole tree nested**, which makes
- * it one request per story — about 2 000. Same data, two orders of magnitude fewer requests, and
- * far gentler on someone else's free API. Both were reachable; this was a choice, not a fallback.
- *
- * ## Why COPY
- *
- * `createMany` batches into a multi-row INSERT, which is fine for hundreds of rows. For ~60 000 it
- * still parses and plans every batch. `COPY FROM STDIN` streams them in one statement, which is
- * what the plan asked for and what makes a reseed take seconds instead of minutes.
+ * Algolia rather than Firebase: `/items/{id}` returns a whole nested tree, so this is ~2 000
+ * requests instead of 60 000+ on someone else's free API.
  */
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
@@ -32,31 +22,15 @@ const TARGET = Number(process.argv[2] ?? 2000);
 
 /** Stories newer than this are what `/` can rank; older ones still populate `/newest`. */
 const DAYS_BACK = 30;
-/**
- * Politeness, and it needed lowering.
- *
- * At eight concurrent the first full run lost **364 of 1 503 trees** to a burst of rate limiting
- * between roughly the 600th and 1 000th request — four retries with exponential backoff were not
- * enough to ride it out, and the failures arrived in a block rather than scattered, which is the
- * signature of a limiter rather than flaky requests. Four concurrent with a longer ceiling trades a
- * couple of minutes for not quietly dropping a quarter of the import.
- */
+/** Eight lost 364 of 1 503 trees to throttling; four does not. */
 const CONCURRENCY = 4;
 
 /**
- * Comments kept per story. **This is a storage decision, measured rather than guessed.**
+ * Comments kept per story, and a storage decision: uncapped, 2 000 stories measured at ~760 MB
+ * against a 500 MB tier shared with other apps. 400 keeps a 300+ comment thread for a tenth of it.
  *
- * The free tier allows 500 MB for the whole Supabase project, shared with the other apps in it.
- * A 40-story trial imported 14 048 comments — one thread alone had 3 490 — and cost 15.2 MB, which
- * scales to roughly 760 MB for the plan's 2 000 stories. Real comments average 282 characters where
- * the fixtures averaged 88, and every distinct commenter becomes a `User` row (6 086 of them from
- * 40 stories), so the first estimate from fixture data was out by a factor of 25.
- *
- * Capping at 400 keeps what the plan's check actually needs — 2 000 stories to paginate and a
- * thread over 300 comments to render at depth — for about a tenth of the storage.
- *
- * `commentCount` records what is *stored*, not what Hacker News has. A row claiming 3 490 comments
- * above 400 rendered ones would be a number the page cannot back up.
+ * `commentCount` records what is *stored*, not what Hacker News has — a row claiming 3 490 comments
+ * above 400 rendered ones is a number the page cannot back up.
  */
 const MAX_COMMENTS_PER_STORY = 400;
 
@@ -79,15 +53,8 @@ async function getJson<T>(url: string, attempt = 1): Promise<T> {
   const res = await fetch(url, { headers: { "user-agent": "tally-import (personal project)" } });
   if (res.ok) return (await res.json()) as T;
 
-  // 429, **403** and 5xx are worth retrying; a 404 means the item is gone and retrying cannot help.
-  //
-  // 403 is here because of what the failure tally reported. The first run lost 364 trees and I put
-  // it down to rate limiting; once the script printed reasons instead of a count, the actual status
-  // was `403 Forbidden` in a contiguous block — Algolia throttling by volume rather than returning
-  // 429. It was not in the retry set, so those requests failed on the first attempt. Adding it took
-  // the losses from 364 to a far smaller number on the same workload.
-  //
-  // Six attempts, so the backoff reaches ~25 s; a throttling window outlasted four.
+  // 403 as well as 429: Algolia throttles by volume with a 403, and omitting it lost 364 trees on
+  // the first run. Six attempts so the backoff reaches ~25 s; a throttling window outlasted four.
   if ((res.status === 429 || res.status === 403 || res.status >= 500) && attempt <= 6) {
     await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
     return getJson<T>(url, attempt + 1);

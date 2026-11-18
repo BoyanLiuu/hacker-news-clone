@@ -116,19 +116,11 @@ export const getCandidates = cache(
 /**
  * When the ranking was last computed, and whether that is behind.
  *
- * This is the real reason `RankedPost` exists, and it is not performance. `ux-24` turns the document
- * line amber when the ordering is behind, and until something *recorded* when it was computed there
- * was no honest way to render that — M5 left it hardcoded `false` rather than invent a value.
- * Inline scoring is always "now" by construction and so can never be stale, which sounds like a
- * feature and is actually the absence of the measurement.
+ * Decided here, not in the header: it depends on the clock, which the React compiler rejects during
+ * render, and a per-component rule can disagree with itself across one page.
  *
- * `stale` is decided here rather than in the header for the reason M5 learned with `getViewer`: it
- * depends on the clock, the React compiler rejects `Date.now()` during render, and a rule computed
- * per component can disagree with itself across one page. Cached, so every consumer sees one answer.
- *
- * Behind means older than **twice** the recompute interval. One missed tick is ordinary jitter for a
- * minute-scheduled job, and amber for that would make the indicator noise; two means the job is not
- * running, which is worth saying on every page.
+ * Behind means older than *twice* the recompute interval — one missed tick is ordinary jitter for a
+ * minute-scheduled job, two means the job is not running.
  */
 export type RankingFreshness = { at: Date | null; stale: boolean };
 
@@ -146,42 +138,16 @@ export const getRankingFreshness = cache(async (): Promise<RankingFreshness> => 
 /**
  * The front page: an index scan on `RankedPost(score DESC)`, paginated in Postgres.
  *
- * **Measured before it was built** — ARCHITECTURE Appendix B insisted on comparing both shapes at
- * real data size rather than materialising on faith. Against 977 posts in the window:
- *
- * | | DB execution | round trip |
- * |---|---|---|
- * | inline, score and sort in SQL | 23.25 ms | 135.1 ms |
- * | materialised, index scan | **0.255 ms** | **112.6 ms** |
- *
- * 91x less database work, and only ~17% faster end to end, because a Supabase round trip is ~110 ms
- * and latency dominates. So read speed is a secondary reason at this size; `getRankedAt` above is
- * the primary one, and the scaling is the third — the inline sort grows with the window while an
- * index scan does not.
- *
- * There is no `at` parameter any more. `/front/:date` was the only caller that wanted a past
- * ordering, and it is gone — Appendix G, Q4.
+ * Both shapes were measured before this one was kept (README): the index scan does 91x less
+ * database work, but only ~17% of a request, since round-trip latency dominates. The deciding
+ * reason is `getRankingFreshness` above — inline scoring has no `computedAt` to be stale against.
  */
 /**
  * The front page, cached across requests for 60 s — matching `CFG.recomputeSeconds`, because the
  * underlying ordering cannot change faster than the job that writes it.
  *
- * **Only the signed-out view is cached, and that restriction is the point.** The query depends on
- * three per-viewer inputs: `showDead`, `isModerator`, and `userId` (a shadow-banned author sees
- * their own posts). Caching it without those in the key would serve one reader's visibility to
- * another — a moderator's dead rows to an anonymous visitor is the worst version of that. Including
- * them in the key would instead mean a cache entry per signed-in user, which is a memory leak
- * dressed as an optimisation.
- *
- * Signed-out is where the traffic is and where the data is identical for everyone, so it takes the
- * cache; signed-in readers pay the query. `React.cache()` still dedupes within a single request for
- * both.
- *
- * **`unstable_cache` serialises through JSON, so `Date` fields come back as strings.** Without the
- * revive below, `formatAge` calls `.getTime()` on a string and the row throws — and because the list
- * renders inside a Suspense boundary, the boundary swallows it and the page shows its skeleton
- * forever rather than an error. A cache that silently turns a page blank is worse than no cache, so
- * the revive is not optional tidying.
+ * Signed-out only. The query depends on `showDead`, `isModerator` and `userId`, so a shared cache
+ * would serve one reader's visibility to another; keying on them would mean an entry per user.
  */
 const cachedSignedOutPage = unstable_cache(
   async (page: number) => rankedPageFromTable(page, ANONYMOUS),
@@ -189,7 +155,10 @@ const cachedSignedOutPage = unstable_cache(
   { revalidate: CFG.recomputeSeconds },
 );
 
-/** Restore the `Date`s JSON flattened to strings. Both fields, or `editedAt` breaks the edit window. */
+/**
+ * `unstable_cache` serialises through JSON, so `Date`s return as strings and `formatAge` throws on
+ * `.getTime()` — inside a Suspense boundary, which swallows it and serves the skeleton forever.
+ */
 function reviveDates(page: Page<ScoredPost>): Page<ScoredPost> {
   return {
     ...page,
