@@ -43,7 +43,9 @@ export function PageShell({
       />
 
       <main className="mx-auto w-full max-w-wrap grow px-4 pt-6 sm:px-8">
-        <div className="page-grid">
+        {/* Only reserve the aside track when there is an aside; otherwise the page kept a 336px
+            gap and squeezed its own content into what was left. */}
+        <div className={aside ? "page-grid" : ""}>
           <div className="min-w-0">{children}</div>
           {/* The aside reads the viewer or the candidate set, so it streams like the list does. */}
           {aside ? (

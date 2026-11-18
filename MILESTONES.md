@@ -12,8 +12,8 @@ Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, 
 | **M1 — Fixtures and the service boundary** | **Done** |
 | **M2 — Listings** | **Done** |
 | **M3 — Thread and comment tree** | **Done** |
-| M4 — Figure 1 | Next |
-| M5 — Forms, profiles, moderation views, error states | |
+| **M4 — Figure 1** | **Done** |
+| M5 — Forms, profiles, moderation views, error states | Next |
 | M6 — Motion pass | |
 
 ---
@@ -348,3 +348,110 @@ Not defects: `getThread` is called twice per request (page and aside) and dedupe
 M1's caching pays for itself here without anyone thinking about it; and the module-level `snapshot`
 in the collapse store is safe because `read()` never runs on the server, where `getServerSnapshot`
 is used instead.
+
+---
+
+## M4 — Figure 1 · Done
+
+Surfaces: `ux-23-rank-debug`, `ux-1-front` (the aside), `ux-36-mobile-why-this-order`
+
+**Objective.** A reader can see why the front page is in this order, and tune gravity to watch the
+ordering change — with every printed number reproducible by hand.
+
+**Guidance.**
+- `src/lib/figure.ts` — the geometry as pure functions: scales, iso-paths, label placement, dot
+  sizing, and `px()` rounding. The axes are `log(age + 2) × log(points)`, which is what makes an
+  iso-rank line straight with slope proportional to G.
+- `src/components/decay-figure.tsx` — server-rendered SVG for the front-page aside. No JavaScript.
+- `src/components/decay-figure-live.tsx` — the interactive version: clickable points, highlight,
+  readout, gravity slider. **The only Motion in the product.**
+- `src/components/rank-debug.tsx`, `src/app/rank-debug/page.tsx` — the per-term table for the top 40.
+- Front-page aside now carries Figure 1 above Table 1, with a link to the interactive version.
+
+**Test requirements.** 8 added, 45 total. The figure's geometry is what can be silently wrong while
+still looking exactly like a chart.
+
+| Test | Bug it catches |
+|---|---|
+| iso-line slope ∝ gravity | axes on `log(age)` instead of `log(age + 2)`, destroying the one property the figure teaches |
+| iso-line straight across three decades | a line straight only by accident, making "outranks everything below its line" false |
+| x ticks keep `age + 2` doubling | ticks tidied to round numbers, so "one tick right" means nothing |
+| iso-lines agree with `rank()` at every sampled age | the chart drawing a model the site does not use |
+| path stays inside the viewBox | a line drawn off-canvas |
+| high and low ranks both emit a path | a line reduced to a stub because every sample exceeded the ceiling |
+| points below 1 clamp | a zero-score story running off the chart |
+
+**Integrates with.** M1's `getCandidates`, which already accepted a gravity override — written for
+this. M2's front-page aside, where Figure 1 sits above Table 1.
+
+**Demo.** Verified by arithmetic rather than by eye:
+
+| Checked | Result |
+|---|---|
+| Slope ∝ gravity, in the rendered DOM | slope/G = −0.492, −0.516, −0.516 at G = 0.8, 1.8, 2.8 |
+| Ordering responds to gravity | top story at G=0.8 is the 412-point one; at G=2.8 a 64-point, 1.4 h one |
+| Table at live gravity | all 40 rows R-descending, every row's `(P−1)/(T+2)^G` reproduces, **every delta zero** |
+| Table at G=2.6 | still descending and reproducible; 39 of 40 rows move |
+| Front-page figure | server-rendered: 30 filled dots, 41 hollow, no JS needed to read it |
+| Phones | figure 343 px wide, stacked below the list, no overflow |
+
+**Five findings.**
+
+1. **A hydration mismatch from floating-point coordinates.** The server rendered
+   `cx="71.72177749146155"` and the client computed `71.72177749146152`. The cause was my own
+   inconsistency — the static figure rounded with `.toFixed(1)`, the live one emitted raw floats.
+   Rounding now happens inside `xOf`/`yOf` via one `px()` helper, which also satisfies
+   `rendering-svg-precision`. Sub-pixel precision was invisible anyway.
+2. **The printed arithmetic did not evaluate to the printed result.** The readout said
+   `R = (412 − 1) / (5.2 + 2)^1.8 = 11.66`, but doing that sum by hand gives 11.77 — because the
+   true age was 5.238 while the display rounded to 5.2. For a figure whose entire claim is that the
+   ranking is checkable rather than a black box, that is worse than a rounding error.
+3. **Fixing that naively put the table visibly out of order.** Sorting on the true score while
+   printing the rounded one gave rank 7 an R of 2.844 above rank 8's 2.855. The fix is to round
+   **once, at the server boundary**, so a single age value drives the ordering, the arithmetic and
+   the figure — and to derive the "vs live" baseline from those same values, so every delta is zero
+   at live gravity and the column compares gravities rather than rounding.
+4. **`PageShell` always reserved the 336 px aside track**, even with no aside, so `/rank-debug`
+   squeezed its table into what was left and every title wrapped to four lines. It now only reserves
+   the track when there is an aside — a bug that would have hit every future aside-less page.
+5. **Motion has no CSS `steps()` equivalent.** It takes béziers or a custom easing function, so
+   DESIGN.md's stepped motion is expressed as `t => Math.ceil(t * 2) / 2` — two discrete jumps over
+   120 ms. A spring would make a measuring instrument feel like an app.
+
+Also corrected while here: `@types/node` was at 20 while the runtime is Node 24, which `pnpm peers
+check` flagged once Motion was added.
+
+**Deferred, with reasoning.** The design's phone variant opens the figure *inline inside a row* on a
+paper inset. That needs a client component per row, which would undo M2's server-rendered listing.
+It is also less necessary here than in the prototype: the aside stacks below the list at ≤900 px, so
+the figure is already reachable on a phone, and `/rank-debug` gives the interactive version. Recorded
+rather than silently skipped.
+
+**The thread figure** — points and rank since posting, from `ux-4` — is still outstanding. It is a
+different chart from this one and did not share the decay geometry, so it is better done alongside
+M5's remaining surfaces than bolted onto this milestone.
+
+**Commit.** `feat: Add the decay figure and rank-debug view` — not committed yet.
+
+### M4 review pass
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`. Output unchanged after.
+
+1. **A comment asserted `next/dynamic` and there was no `next/dynamic` anywhere.** Appendix E requires
+   Motion be lazily loaded; I wrote a comment saying it was and never did it. The outcome holds —
+   measured, Motion reaches neither `/` nor `/item` — but only because this module is reachable
+   solely from `/rank-debug`, so route splitting does the work. The comment now says that, and says
+   it was measured. A false comment is worse than a bug: it gets believed.
+2. **Motion cost 43 KB gz; now 32 KB.** Importing `m` from `motion/react` pulls the full animation
+   bundle even behind `LazyMotion`. `motion/react-m` is the minimal entry and saved **10.8 KB gz**
+   (`/rank-debug` 217.7 → 206.9). Verified still interpolating: mid-flight the path differs from both
+   endpoints rather than jumping.
+3. **~80 lines of chart furniture were duplicated** across the static and interactive figures — grid,
+   axes, ticks, labels, hollow dots, in two copies. That is how two renderings of the same chart stop
+   being the same chart. Extracted to `figure-frame.tsx`: 182 + 260 lines became 146 + 225 plus a
+   60-line shared frame.
+4. **`liveOrder.indexOf()` inside a `.map()`** — quadratic over 40 rows. A `Map` now.
+
+**Per-route JS, gzipped:** `/` 174.4 KB · `/item` 175.0 KB · `/rank-debug` 206.9 KB. Motion is +32 KB
+on exactly one route and the reading paths are untouched, which is what Appendix E wanted and is now
+actually true rather than asserted.
