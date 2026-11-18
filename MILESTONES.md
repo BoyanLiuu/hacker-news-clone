@@ -10,8 +10,8 @@ Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, 
 |---|---|
 | **M0 — Scaffold and design tokens** | **Done** |
 | **M1 — Fixtures and the service boundary** | **Done** |
-| M2 — Listings | Next |
-| M3 — Thread and comment tree | |
+| **M2 — Listings** | **Done** |
+| M3 — Thread and comment tree | Next |
 | M4 — Figure 1 | |
 | M5 — Forms, profiles, moderation views, error states | |
 | M6 — Motion pass | |
@@ -152,3 +152,100 @@ Reviewed with `code-simplifier` and `vercel-react-best-practices`. Eight finding
 No measurable speed change at this data size — 311 comments and 69 posts are too small to show it.
 The fixes are structural: this is the layer M14 has to reach 200 ms p95 through, and M2 and M3 copy
 these shapes.
+
+---
+
+## M2 — Listings · Done
+
+Surfaces: `ux-1-front`, `ux-8-newest`, `ux-9-past-front`, `ux-10-from-domain`, `ux-30-empty-site`
+
+**Objective.** All four listings render real fixture data on the design's five-track grid, at both
+1440 px and 375 px.
+
+**Guidance.**
+- `src/components/story-row.tsx` — one row, used unchanged by all four listings. `ux-8` shows
+  `/newest` using the same rank-and-points row as `/`, so the row needs **no variants and no boolean
+  modes**; a page differs only in the order it passes rows in and which points value it passes.
+- `src/components/story-list.tsx` — the ruled list plus `StoryListSkeleton` on the identical grid.
+- `src/components/page-shell.tsx` — header, two-column grid, footer. Synchronous, so it prerenders.
+- `src/components/{vote-button,datasheet-table,pager,empty-state}.tsx`
+- `src/services/viewer.ts` — the second seam: a fixture viewer now, Clerk in M10.
+- `src/lib/format.ts` — relative age and pinned-locale counts.
+- Pages: `/`, `/newest`, `/from?site=`, `/front/[date]`, and `/past` as a redirect.
+
+**Test requirements.** 2 added, 28 total.
+
+| Test | Bug it catches |
+|---|---|
+| `formatAge` unit boundaries | "60 min" instead of "1 h", or "48 h" instead of "2 d", in a 52 px column |
+| never a negative age | clock skew rendering "-3 min", which looks broken |
+
+**Integrates with.** M1's services for every read, M0's tokens and shell for every surface.
+
+**Demo.** Measured in the browser against the reference screens:
+
+| Checked | Result |
+|---|---|
+| Grid tracks, 1440 px | `30px 70px 510px 52px 74px`, 12 px gap — head band identical to rows, so nothing shifts |
+| Grid tracks, 375 px | `26px 28px 257px`; head band hidden, figures moved into the meta line |
+| `/` differs from `/newest` | ranked #1 is 412 pts at 6 h; newest #1 is 18 pts at 1 h |
+| Decay holds | #4 (64 pts, 2 h) outranks #6 (236 pts, 8 h) and #7 (302 pts, 12 h) |
+| Domain links | 26 on the page; `/from?site=kestrel.systems` lists 4, `blog.kestrel.systems` folds to the same page |
+| Empty state | `/from?site=example.com` gives the heading, explanation and Submit action |
+| Own items | petrol square instead of the arrow; `edit delete` with no comments, `edit` only once replied |
+| Horizontal overflow | none at either width |
+
+**Five findings.**
+
+1. **Suspense boundaries are now required, not optional.** `cacheComponents` is on, so anything
+   reading the clock, the viewer or `searchParams` must sit inside a boundary — and `searchParams`
+   must be *passed down as a promise* and awaited there, not awaited in the page body. Four separate
+   build failures taught this one route at a time. `/past` became a **route handler** rather than a
+   page, because a pure redirect has nothing to prerender.
+2. **The shell had to be split.** Reading the viewer in `PageShell` made the whole header dynamic.
+   The wordmark and nav are the same for everyone and now prerender; the account block and document
+   line stream into slots, both fixed-height so nothing shifts.
+3. **The front page is 204 KB uncompressed against a 50 KB budget — but 17.2 KB gzipped.** The
+   breakdown: 135 KB (66%) is the RSC flight payload, 69 KB is markup, and **41 KB of that markup is
+   repeated Tailwind class attributes** across 30 rows. **ARCHITECTURE §6.3 does not say whether the
+   budget is wire size or uncompressed, and that needs deciding.** Gzipped it passes comfortably;
+   uncompressed it does not. M14 owns the budget, and the repeated class strings are the obvious
+   first cut.
+4. **Two deviations from the reference, found by comparing screenshots.** The domain was wrapping to
+   its own line because title-plus-domain was a flex row — the long title filled the line and pushed
+   the domain down. It is inline flow now, so the domain follows the title's last line as `ux-1`
+   shows. Separately the generated filler had landed on the **top-ranked** story, so row 1 claimed
+   312 comments where the reference shows 42; it now attaches to the oldest story, which ranks low.
+5. **`/item`, `/user/*`, `/submit` and `/settings` 404 on prefetch** — 13 console errors on the front
+   page. The links are right; the routes arrive in M3 and M5. Expected mid-phase, recorded so it is
+   not mistaken for a defect later.
+
+Also fixed while verifying: own items never offered `delete`, and the mobile meta line read
+"1 comments".
+
+**Commit.** `feat: Add ranked, newest, past and domain listings` — not committed yet.
+
+### M2 review pass
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`; rendered output unchanged after.
+
+- **The waterfall came back.** All four pages awaited `searchParams`, then the viewer, then the
+  query — the first two are independent. One `Promise.all` each now. The M1 review had already fixed
+  this pattern once, which is an argument for the checker enforcing it rather than a reviewer
+  catching it each milestone.
+- **The head band was duplicated** between `StoryList` and `StoryListSkeleton`. Those two have to
+  stay identical or the zero-layout-shift guarantee quietly stops being true, and two copies is how
+  that happens. One hoisted `HEAD_BAND` constant now.
+- **`toRows()`** replaces four copies of `(page - 1) * pageSize + i + 1`.
+- **`titleInk` / `metaInk`** replace six copies of the same dead-row ternary.
+
+Reported and deliberately left for M14: the row renders both the mobile and desktop figures and
+hides one with CSS, which doubles that markup across 30 rows and feeds the 41 KB of repeated class
+attributes. Fixing it means a CSS-only reflow, which carries visual risk and no functional gain today.
+
+### Out-of-range pages
+
+`/?p=99` rendered an empty list under "Page 99 of 3" with no explanation, while every other dead end
+in the app explains itself. `pageOutOfRange()` and `OutOfRange` in `pager.tsx` now give it a message
+and a way back, on all three paginated listings. It stays distinct from an empty list, which needs a
+different explanation — `/from?site=example.com` still says "Nothing from example.com yet".

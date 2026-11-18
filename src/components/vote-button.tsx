@@ -1,0 +1,36 @@
+/**
+ * A bare 26 px button holding a 12 px triangle drawn as a 1.5 px stroke in meta ink. On hover the
+ * arrow turns ink over a 7% petrol wash. Your own items show a 7 px petrol square instead — you
+ * cannot vote for yourself, so there is no arrow to offer.
+ *
+ * DESIGN.md §Vote Button. The pressed, pending, confirmed and rolled-back states arrive with the
+ * real action in M12; this milestone delivers the glyph, the hit area and the hover.
+ */
+export function VoteButton({ label, own }: { label: string; own: boolean }) {
+  if (own) {
+    return (
+      <span className="flex size-[26px] items-center justify-center" title="Your own submission">
+        <span aria-hidden="true" className="size-[7px] bg-petrol" />
+        <span className="sr-only">Your own submission</span>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={`Upvote ${label}`}
+      className="group flex size-[26px] items-center justify-center rounded-soft hover:bg-petrol/7"
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+        <path
+          d="M6 2 L11 10 L1 10 Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-meta group-hover:text-ink"
+        />
+      </svg>
+    </button>
+  );
+}

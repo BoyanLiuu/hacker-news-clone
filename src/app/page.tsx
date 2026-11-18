@@ -1,55 +1,74 @@
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { DatasheetTable, SyntheticNote } from "@/components/datasheet-table";
+import { PageHead, PageShell } from "@/components/page-shell";
+import { OutOfRange, Pager, pageFromParam, pageOutOfRange } from "@/components/pager";
+import { StoryList, StoryListSkeleton } from "@/components/story-list";
+import { toRows } from "@/components/story-row";
+import { CFG } from "@/lib/config";
+import { formatCount } from "@/lib/format";
+import { getCandidates, getRankedPage } from "@/services/posts";
+import { getViewerOpts } from "@/services/viewer";
 
-export default function FrontPage() {
+type Search = Promise<{ p?: string }>;
+
+/**
+ * The ranked front page. The shell prerenders and the ordering streams in behind a Suspense
+ * boundary, because the ranking is a function of now() and cannot be prerendered — the skeleton on
+ * the live grid is the fallback, which is what it exists for.
+ */
+export default function FrontPage({ searchParams }: { searchParams: Search }) {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <SiteHeader
-        current="Front"
-        viewer={{ name: "mlin", karma: 1284 }}
-        doc={{ section: "front page", rev: 862, rankedAt: "14:31:22", age: "39 s", gravity: 1.8 }}
+    <PageShell nav="Front" section="front page" aside={<FrontAside />}>
+      <PageHead title="Front page" sub="Ranked by score and age" />
+      <Suspense fallback={<StoryListSkeleton />}>
+        <RankedList searchParams={searchParams} />
+      </Suspense>
+    </PageShell>
+  );
+}
+
+async function RankedList({ searchParams }: { searchParams: Search }) {
+  await connection();
+
+  // The query string and the viewer are independent, so they resolve together; the ranked read
+  // needs both and waits.
+  const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
+  const page = pageFromParam(params.p);
+  const ranked = await getRankedPage(page, opts);
+
+  if (pageOutOfRange(ranked)) return <OutOfRange page={ranked} basePath="/" />;
+
+  const rows = toRows(ranked.items, ranked, (row) => ({ points: row.points, post: row.post }));
+
+  return (
+    <>
+      <StoryList rows={rows} viewerName={opts.userId} />
+      <Pager page={ranked} basePath="/" />
+    </>
+  );
+}
+
+async function FrontAside() {
+  await connection();
+
+  const opts = await getViewerOpts();
+  const candidates = await getCandidates(opts);
+
+  return (
+    <div className="flex flex-col gap-7">
+      {/* Figure 1, the decay characteristic, lands in M4. */}
+      <DatasheetTable
+        number={1}
+        title="Characteristics"
+        rows={[
+          ["Gravity, G", CFG.gravity.toFixed(1)],
+          ["Candidate window", `${CFG.windowDays} days · ${formatCount(candidates.length)} stories`],
+          ["Recompute interval", `${CFG.recomputeSeconds} s`],
+          ["Page size", formatCount(CFG.pageSize)],
+        ]}
+        note={<SyntheticNote />}
       />
-
-      <main className="mx-auto w-full max-w-wrap grow px-4 pt-6 sm:px-8">
-        <div className="page-grid">
-          <div>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 tabIndex={-1} className="type-title">
-                Front page
-              </h1>
-              <span className="text-[13.5px] text-meta">
-                68 candidates from the last 7 days, ranked by score and age
-              </span>
-            </div>
-
-            {/* The ranked list lands in M2. The rules are here so the grid and type can be checked now. */}
-            <div className="mt-4 rule-open">
-              {/* The head band is hidden at 640px and below; its figures move into each row's meta line. */}
-              <div className="hidden grid-cols-[30px_70px_1fr_52px_74px] gap-x-3 bg-head px-1 py-[7px] type-label text-ink-2 sm:grid">
-                <span className="text-right">#</span>
-                <span className="text-right">Points</span>
-                <span>Story</span>
-                <span className="text-right">Age</span>
-                <span className="text-right">Comments</span>
-              </div>
-              <p className="rule-divide px-1 py-[7px] type-meta text-meta">
-                Ranked rows arrive in M2.
-              </p>
-              <div className="rule-close" />
-            </div>
-          </div>
-
-          <aside className="page-aside">
-            <h2 className="type-section">
-              <span className="pr-2 font-medium text-meta">Figure 1</span>
-              Score against age
-            </h2>
-            <p className="mt-2 type-meta text-meta">The decay characteristic arrives in M4.</p>
-          </aside>
-        </div>
-      </main>
-
-      <SiteFooter />
     </div>
   );
 }

@@ -57,7 +57,10 @@ for (const [idx, list] of Object.entries(C)) walk(posts[Number(idx)].id, list, n
 
 // ---- one generated thread, so the depth cap and the long-thread render path have a real target.
 // Authored data tops out at 45 comments; M3 needs 300+. Deterministic, seeded, clearly synthetic.
-const BIG_POST_ID = posts[0].id;
+// Attach the filler to the OLDEST story, not the newest: a 300-comment count on a top-ranked row
+// would make the front page disagree with its own reference screenshot. An old post ranks low, so
+// the long thread is reachable without distorting the listings.
+const BIG_POST_ID = posts.reduce((oldest, p) => (p.ageHours > oldest.ageHours ? p : oldest), posts[0]).id;
 const voices = ['pgdevlin','kestrel','ivo','marekz','nadia_r','oakes','quill','tsuki','ortolan','yfeng','olm','harrow','smallfry','ivo'];
 let rnd = 20261117;
 const next = () => (rnd = (rnd * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
@@ -93,10 +96,10 @@ function grow(parentId, parentPath, depth, budget) {
 }
 
 let generated = 0;
-for (let r = 0; r < 24 && generated < 290; r++) {
+for (let r = 0; r < 34 && generated < 320; r++) {
   const root = add(null, null, 0);
   generated++;
-  generated += grow(root.id, root.path, 1, 290 - generated);
+  generated += grow(root.id, root.path, 1, 320 - generated);
 }
 
 // One deliberate chain past the depth cap, so "continue this thread" has a real target.
