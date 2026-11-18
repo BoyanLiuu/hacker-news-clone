@@ -1,4 +1,3 @@
-import { connection } from "next/server";
 import { Suspense } from "react";
 import { DatasheetTable, SyntheticNote } from "@/components/datasheet-table";
 import { EmptyState } from "@/components/empty-state";
@@ -37,8 +36,6 @@ export default function PastFrontPage({ params }: { params: Params }) {
 }
 
 async function PastColumn({ params }: { params: Params }) {
-  await connection();
-
   const [resolved, opts] = await Promise.all([params, getViewerOpts()]);
   const at = parseDate(resolved.date);
   if (!at) {

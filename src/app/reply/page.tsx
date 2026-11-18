@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 import { Suspense } from "react";
 import { CommentTree } from "@/components/comment-node";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { PageShell } from "@/components/page-shell";
 import { ReplyForm } from "@/components/reply-form";
 import { formatAgeLong } from "@/lib/format";
-import { CFG } from "@/lib/config";
 import { countDescendants } from "@/lib/tree";
 import { getSubtree } from "@/services/comments";
 import { getPostById } from "@/services/posts";
@@ -20,7 +18,13 @@ type Search = Promise<{ id?: string }>;
  * see what it is replying to. This is where "continue this thread" lands when a subtree passes the
  * depth cap, so the tree re-roots here and depth starts counting again from this comment.
  */
-export default function ReplyPage({ searchParams }: { searchParams: Search }) {
+/** Validated before streaming, so a bad id answers 404 rather than 200 — see item/page.tsx. */
+/** Validated in the page body so the status is a real 404 — see item/page.tsx. */
+export default async function ReplyPage({ searchParams }: { searchParams: Search }) {
+  const id = Number((await searchParams).id);
+  if (!Number.isInteger(id)) notFound();
+  if (!(await getSubtree(id, await getViewerOpts()))) notFound();
+
   return (
     <PageShell
       nav=""
@@ -35,12 +39,8 @@ export default function ReplyPage({ searchParams }: { searchParams: Search }) {
 }
 
 async function Permalink({ searchParams }: { searchParams: Search }) {
-  await connection();
-
   const [params, viewer, opts] = await Promise.all([searchParams, getViewer(), getViewerOpts()]);
   const id = Number(params.id);
-  if (!Number.isInteger(id)) notFound();
-
   const found = await getSubtree(id, opts);
   if (!found) notFound();
 
@@ -79,7 +79,7 @@ async function Permalink({ searchParams }: { searchParams: Search }) {
             opAuthor: post?.author ?? "",
             viewerName: opts.userId,
             baseDepth: node.depth,
-            canDownvote: (viewer?.user.karma ?? 0) >= CFG.downvoteKarma,
+            canDownvote: viewer?.canDownvote ?? false,
           }}
         />
       </div>
@@ -90,8 +90,6 @@ async function Permalink({ searchParams }: { searchParams: Search }) {
 }
 
 async function PermalinkAside({ searchParams }: { searchParams: Search }) {
-  await connection();
-
   const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
   const id = Number(params.id);
   if (!Number.isInteger(id)) return null;

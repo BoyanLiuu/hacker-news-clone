@@ -1,4 +1,3 @@
-import { connection } from "next/server";
 import { Suspense } from "react";
 import { DatasheetTable, SyntheticNote } from "@/components/datasheet-table";
 import { EmptyState } from "@/components/empty-state";
@@ -18,7 +17,7 @@ type Search = Promise<{ site?: string; p?: string }>;
  *
  * The page title comes from the query string, so the whole main column streams — the promise is
  * passed down and awaited inside the boundary rather than in the shell, which keeps the header
- * and footer prerenderable.
+ * and footer flush before the list resolves.
  */
 export default function FromPage({ searchParams }: { searchParams: Search }) {
   return (
@@ -38,8 +37,6 @@ export default function FromPage({ searchParams }: { searchParams: Search }) {
 }
 
 async function DomainColumn({ searchParams }: { searchParams: Search }) {
-  await connection();
-
   const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
   const site = normaliseSite(params.site);
 

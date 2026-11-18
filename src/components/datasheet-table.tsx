@@ -13,19 +13,22 @@ export function DatasheetTable({
   rows,
   note,
 }: {
-  number: number;
-  title: string;
+  /** Omit both to get a plain facts table — the profile's key/value block has no caption. */
+  number?: number;
+  title?: string;
   rows: ReadonlyArray<readonly [React.ReactNode, React.ReactNode]>;
   note?: React.ReactNode;
 }) {
   return (
     <section>
-      <h2 className="type-section">
-        <span className="pr-2 font-medium text-meta">Table {number}</span>
-        {title}
-      </h2>
+      {title ? (
+        <h2 className="type-section">
+          {number ? <span className="pr-2 font-medium text-meta">Table {number}</span> : null}
+          {title}
+        </h2>
+      ) : null}
 
-      <table className="mt-2 w-full border-collapse text-[13px] rule-open">
+      <table className={`${title ? "mt-2" : ""} w-full border-collapse text-[13px] rule-open`}>
         <tbody>
           {rows.map(([label, value], i) => (
             <tr key={i} className={i === rows.length - 1 ? "rule-close" : "rule-divide"}>

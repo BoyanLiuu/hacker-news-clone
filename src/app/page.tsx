@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { connection } from "next/server";
 import { Suspense } from "react";
 import { DatasheetTable, SyntheticNote } from "@/components/datasheet-table";
 import { DecayFigure, FigureCaption, FigureFootnote, toFigurePoints } from "@/components/decay-figure";
@@ -15,9 +14,9 @@ import { getViewerOpts } from "@/services/viewer";
 type Search = Promise<{ p?: string }>;
 
 /**
- * The ranked front page. The shell prerenders and the ordering streams in behind a Suspense
- * boundary, because the ranking is a function of now() and cannot be prerendered — the skeleton on
- * the live grid is the fallback, which is what it exists for.
+ * The ranked front page. Rendered per request — the ranking is a function of now() — with the
+ * ordering behind a Suspense boundary so the header and footer flush first and the skeleton on the
+ * live grid covers the gap. ARCHITECTURE §5: a dynamic page over a cached data read.
  */
 export default function FrontPage({ searchParams }: { searchParams: Search }) {
   return (
@@ -31,8 +30,6 @@ export default function FrontPage({ searchParams }: { searchParams: Search }) {
 }
 
 async function RankedList({ searchParams }: { searchParams: Search }) {
-  await connection();
-
   // The query string and the viewer are independent, so they resolve together; the ranked read
   // needs both and waits.
   const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
@@ -52,8 +49,6 @@ async function RankedList({ searchParams }: { searchParams: Search }) {
 }
 
 async function FrontAside() {
-  await connection();
-
   const opts = await getViewerOpts();
   const candidates = await getCandidates(opts);
 

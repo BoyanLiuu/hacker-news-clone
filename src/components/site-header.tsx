@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { connection } from "next/server";
 import { CFG } from "@/lib/config";
 import { formatAge, formatUtcTime } from "@/lib/format";
 import { getViewer } from "@/services/viewer";
@@ -12,7 +11,7 @@ const COUNT = new Intl.NumberFormat("en-US");
 
 /**
  * Static hrefs only. "Past" points at /past, which redirects to today's dated page — reading the
- * clock here would make the whole header unprerenderable for the sake of one link.
+ * clock here would make the header depend on the request for the sake of one link.
  */
 const NAV = [
   { href: "/", label: "Front" },
@@ -52,8 +51,8 @@ function NavItem({ href, label, active }: { href: string; label: string; active:
 }
 
 /**
- * The wordmark and nav are the same for everyone, so they prerender. The account block and the
- * document line are per-request and stream into the slots — both are fixed-height, so nothing
+ * The wordmark and nav are the same for everyone, so they render immediately. The account block
+ * and the document line are per-request and stream into the slots — both fixed-height, so nothing
  * shifts when they arrive.
  */
 export function SiteHeader({
@@ -101,7 +100,6 @@ export function SiteHeader({
 }
 
 export async function AccountBlock() {
-  await connection();
   const viewer = await getViewer();
 
   if (!viewer) {
@@ -141,7 +139,6 @@ const DOC_ROW =
  * ranking is stale — wired to a real computedAt in M9.
  */
 export async function DocumentLine({ section }: { section: string | Promise<string> }) {
-  await connection();
   const label = await section;
 
   const rankedAt = new Date();

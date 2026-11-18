@@ -1,4 +1,3 @@
-import { connection } from "next/server";
 import { Suspense } from "react";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { RankDebug } from "@/components/rank-debug";
@@ -28,8 +27,6 @@ export default function RankDebugPage() {
 const TOP = 40;
 
 async function Candidates() {
-  await connection();
-
   const opts = await getViewerOpts();
   // Scored at the live gravity, so "vs live" has something to compare against. The client
   // rescores locally as the slider moves — no round trip, and the live order is never touched.

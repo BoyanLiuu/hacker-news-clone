@@ -1,4 +1,3 @@
-import { connection } from "next/server";
 import { Suspense } from "react";
 import { DatasheetTable, SyntheticNote } from "@/components/datasheet-table";
 import { PageHead, PageShell } from "@/components/page-shell";
@@ -25,8 +24,6 @@ export default function NewestPage({ searchParams }: { searchParams: Search }) {
 }
 
 async function NewestList({ searchParams }: { searchParams: Search }) {
-  await connection();
-
   const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
   const page = pageFromParam(params.p);
   const newest = await getNewestPage(page, opts);

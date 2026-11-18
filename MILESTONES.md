@@ -13,8 +13,8 @@ Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, 
 | **M2 — Listings** | **Done** |
 | **M3 — Thread and comment tree** | **Done** |
 | **M4 — Figure 1** | **Done** |
-| M5 — Forms, profiles, moderation views, error states | Next |
-| M6 — Motion pass | |
+| M5 — Forms, profiles, moderation views, error states | **Partial — 11 of 17 surfaces** |
+| M6 — Motion pass | After M5 finishes |
 
 ---
 
@@ -455,3 +455,76 @@ Reviewed with `code-simplifier` and `vercel-react-best-practices`. Output unchan
 **Per-route JS, gzipped:** `/` 174.4 KB · `/item` 175.0 KB · `/rank-debug` 206.9 KB. Motion is +32 KB
 on exactly one route and the reading paths are untouched, which is what Appendix E wanted and is now
 actually true rather than asserted.
+
+### M5 review pass
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`. Behaviour unchanged; 404s still
+correct; front page still 30 rows and 30 figure dots.
+
+1. **18 dead `await connection()` calls across 12 files.** Under `cacheComponents` they were the
+   signal that opted a subtree out of prerendering. With it off every route is dynamic, so they do
+   nothing — and the comments beside them explained a mechanism that is no longer running. Removed,
+   along with the `next/server` imports.
+2. **Nine comments described prerendering that no longer happens** — "the shell prerenders", "the
+   header and footer prerenderable", "nothing to prerender". This is the same failure as M4's
+   `next/dynamic` comment: documentation asserting a mechanism nobody verified. All nine rewritten to
+   describe what the code actually does, which is flush the chrome first and stream the data behind
+   boundaries.
+3. **The submission-rules table hardcoded `80`** while the validator used `TITLE_MAX`. The table that
+   states the rules has to read the constant the rules are enforced with, or it eventually lies.
+
+Not findings: the Suspense boundaries still earn their place with PPR off — they stream the chrome
+ahead of the data rather than enabling a static shell. The two "needs an account" notices differ in
+tone, content and action, so they are not duplication.
+
+---
+
+## M5 — Forms, profiles, moderation views and error states · Partial (11 of 17)
+
+**Built.** `/submit` with the live 80-character counter, the three notice tones and the rules aside ·
+`/settings` with about and show-dead · `/user/[username]` with the facts table and URL-driven tabs ·
+`/admin/flagged` with the queue, Kill/Restore text actions and the moderators-only refusal ·
+`error.tsx` · `not-found.tsx` · `notice.tsx`, `field.tsx`, `tabs.tsx`.
+
+**The 13 prefetch 404s on the front page are gone** — they were exactly these routes.
+
+**Still open, and the reason M5 was flagged as overloaded when the plan was reviewed:**
+
+- `ux-12` duplicate submit — `findDuplicate` exists in the service, no UI
+- `ux-13` rate-limited state — the limit is stated, the state is not rendered
+- `ux-24` stale ranking — the amber document line is wired but `stale` is hardcoded `false`; needs M9's `computedAt`
+- `ux-28` own-post delete confirm — the link exists, the red inline confirm does not
+- `ux-18` / `ux-21` — new-account and moderator thread variants
+
+**The significant decision: `cacheComponents` is off.**
+
+It was a `create-next-app` default, never a choice, and it fought the requirements in M2 (four build
+failures), M4 and M5. The breaking point: under it a page body cannot read request data, so
+**`notFound()` can never set a status code** and unknown ids answered 200 — every dead link looking
+alive to crawlers and link checkers. ARCHITECTURE §5 already specified the alternative, a dynamic
+page over a cached data read, which is what this now is.
+
+| | with `cacheComponents` | without |
+|---|---|---|
+| `/item?id=99999` | 200 | **404** |
+| Front page rows in initial HTML | streamed holes | **30 rows present** |
+| Thread, gzipped | 20.7 KB | **18.0 KB** |
+| Front page, gzipped | 17.2 KB | 19.9 KB |
+
+Every route is now `ƒ`. **ARCHITECTURE Appendix B should record this** — it currently describes the
+PPR-shaped architecture.
+
+One documented limitation: a thrown `notFound()` yields Next's minimal error document rather than
+`not-found.tsx`, so the status, the noindex and the browser-rendered page are all correct, but a
+reader with JavaScript disabled sees a blank 404. Verified in a browser: status 404 and the full
+styled page. A wrong status is the worse failure.
+
+**Also removed the root `loading.tsx`** — it applied to every route, so `/submit` and threads got a
+ranked-list skeleton. Per-page Suspense fallbacks already cover `ux-25` with the right content.
+
+**`getViewer` now owns the debrief's gating rules** — `isNewAccount`, `canFlag`, `canDownvote`. The
+React compiler flagged `Date.now()` during render, and the real fix was recognising these as domain
+rules that depend on the clock, not rendering details. It also removed the karma-threshold check I
+had duplicated inline in M3.
+
+**Commit.** `feat: Add submit, profile, settings and moderation views`

@@ -1,12 +1,10 @@
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 import { Suspense } from "react";
 import { CommentTree } from "@/components/comment-node";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { PageShell } from "@/components/page-shell";
 import { PostHeader } from "@/components/post-header";
 import { ReplyForm } from "@/components/reply-form";
-import { CFG } from "@/lib/config";
 import { countDescendants } from "@/lib/tree";
 import { getThread } from "@/services/comments";
 import { getPostById } from "@/services/posts";
@@ -21,7 +19,24 @@ type Search = Promise<{ id?: string }>;
  * assembled in one pass (ARCHITECTURE §6.2). A dead story is reachable here even though listings
  * hide it, which is why this uses getPostById rather than a listing query.
  */
-export default function ItemPage({ searchParams }: { searchParams: Search }) {
+/**
+ * The id is checked here, in the page body, rather than inside the streamed boundary. `notFound()`
+ * cannot set a status code once the shell has been flushed, so a bad id would otherwise answer 200
+ * with no 404 content in the initial HTML — failing both crawlers and readers without JavaScript.
+
+ */
+/**
+ * The id is validated here, in the page body, so `notFound()` can set a 404 status — once the shell
+ * has been flushed it cannot. The trade is that Next answers with its own minimal error document
+ * rather than `not-found.tsx`; the status, the noindex and the browser-rendered page are all
+ * correct, but a reader with JavaScript disabled sees an empty 404 rather than a styled one. A
+ * wrong status code is worse: it makes every dead link look alive to crawlers and link checkers.
+ */
+export default async function ItemPage({ searchParams }: { searchParams: Search }) {
+  const id = Number((await searchParams).id);
+  if (!Number.isInteger(id)) notFound();
+  if (!(await getPostById(id, await getViewerOpts()))) notFound();
+
   return (
     <PageShell
       nav=""
@@ -36,13 +51,8 @@ export default function ItemPage({ searchParams }: { searchParams: Search }) {
 }
 
 async function Thread({ searchParams }: { searchParams: Search }) {
-  await connection();
-
   const [params, viewer, opts] = await Promise.all([searchParams, getViewer(), getViewerOpts()]);
   const id = Number(params.id);
-  if (!Number.isInteger(id)) notFound();
-
-  // The post and its comments are independent reads, so they resolve together.
   const [post, roots] = await Promise.all([getPostById(id, opts), getThread(id, opts)]);
   if (!post) notFound();
 
@@ -55,7 +65,7 @@ async function Thread({ searchParams }: { searchParams: Search }) {
             opAuthor: post.author,
             viewerName: opts.userId,
             baseDepth: 0,
-            canDownvote: (viewer?.user.karma ?? 0) >= CFG.downvoteKarma,
+            canDownvote: viewer?.canDownvote ?? false,
           }} />
       </div>
     </>
@@ -68,8 +78,6 @@ async function Thread({ searchParams }: { searchParams: Search }) {
  * is charting work and lands with the other figures in M4.
  */
 async function ThreadAside({ searchParams }: { searchParams: Search }) {
-  await connection();
-
   const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
   const id = Number(params.id);
   if (!Number.isInteger(id)) return null;

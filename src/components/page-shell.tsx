@@ -11,9 +11,9 @@ import {
 /**
  * Header, two-column grid, footer. Every page composes this rather than repeating the chrome.
  *
- * Deliberately synchronous: the shell prerenders, and the per-request pieces — the account block,
- * the document line, and whatever the page streams into `children` — sit behind their own
- * boundaries. The aside is a slot, not a render prop, so a page passes the element it wants.
+ * Deliberately synchronous, so the chrome flushes before any data read completes: the account
+ * block, the document line and whatever the page streams into `children` each sit behind their own
+ * boundary. The aside is a slot, not a render prop, so a page passes the element it wants.
  */
 export function PageShell({
   nav,
