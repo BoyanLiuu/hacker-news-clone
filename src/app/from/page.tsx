@@ -7,7 +7,7 @@ import { StoryList, StoryListSkeleton } from "@/components/story-list";
 import { toRows } from "@/components/story-row";
 import { registrableDomain } from "@/lib/domain";
 import { getPostsByDomain } from "@/services/posts";
-import { getViewerOpts } from "@/services/viewer";
+import { getViewer, getViewerOpts } from "@/services/viewer";
 
 type Search = Promise<{ site?: string; p?: string }>;
 
@@ -37,7 +37,7 @@ export default function FromPage({ searchParams }: { searchParams: Search }) {
 }
 
 async function DomainColumn({ searchParams }: { searchParams: Search }) {
-  const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
+  const [params, viewer, opts] = await Promise.all([searchParams, getViewer(), getViewerOpts()]);
   const site = normaliseSite(params.site);
 
   if (!site) {
@@ -81,7 +81,7 @@ async function DomainColumn({ searchParams }: { searchParams: Search }) {
   return (
     <>
       <PageHead title={site} />
-      <StoryList rows={rows} viewerName={opts.userId} />
+      <StoryList rows={rows} viewerName={opts.userId} canFlag={viewer?.canFlag ?? false} />
       <Pager page={listing} basePath="/from" query={{ site }} />
     </>
   );

@@ -18,6 +18,9 @@ const DEFAULT_VIEWER = "mlin";
 export const PREVIEW_COOKIE = "tally-preview-as";
 export const SIGNED_OUT = "signed-out";
 
+/** Set by `/preview?slow=on`. Slows every stepped transition 16x so it can be reviewed. */
+export const SLOW_COOKIE = "tally-slow-motion";
+
 /**
  * The viewer plus what they are allowed to do.
  *

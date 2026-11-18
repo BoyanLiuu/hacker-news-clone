@@ -26,10 +26,11 @@ import { FigureFrame, HollowPoints } from "./figure-frame";
  * Appendix E — moving ~69 point positions and six iso-line path strings together, in step, is not
  * something CSS can express.
  *
- * No reading path pays for it: this module is only reached from /rank-debug, so Next's route
- * splitting already keeps Motion out of / and /item — measured, not assumed. Motion costs 32 KB gz
- * on this route, down from 43 KB by importing `m` from `motion/react-m` rather than `motion/react`;
- * LazyMotion then loads only the DOM animation features.
+ * No reading path pays for it, and since M6 not even this route's first paint does: `rank-debug.tsx`
+ * pulls this module with `next/dynamic`, so Motion sits in a chunk of its own that no route's
+ * initial HTML references. Measured at **31.1 KB gz**, down from 43 KB by importing `m` from
+ * `motion/react-m` rather than `motion/react`; LazyMotion then loads only the DOM animation
+ * features. Keeping that split working is why `GravitySlider` lives in its own file.
  *
  * Motion is configured against its own defaults: 120 ms stepped, not eased. DESIGN.md is explicit
  * that values step rather than glide, and a spring here would make a measuring instrument feel like
@@ -190,38 +191,6 @@ function Readout({ point, gravity }: { point: FigurePoint; gravity: number }) {
       No. {point.rank} · {point.points} pts at {age.toFixed(1)} h
       <br />R = ({point.points} − 1) / ({age.toFixed(1)} + 2)
       <sup>{gravity.toFixed(1)}</sup> = {r.toFixed(2)}
-    </div>
-  );
-}
-
-export function GravitySlider({
-  gravity,
-  live,
-  onChange,
-}: {
-  gravity: number;
-  live: number;
-  onChange: (next: number) => void;
-}) {
-  return (
-    <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-      <label htmlFor="gravity" className="text-[13.5px] font-semibold">
-        Gravity, G
-      </label>
-      <input
-        id="gravity"
-        type="range"
-        min={0.6}
-        max={3}
-        step={0.1}
-        value={gravity}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1 w-[220px] accent-petrol"
-      />
-      <span className="font-mono text-[15px] text-petrol-ink">{gravity.toFixed(1)}</span>
-      <span className="type-meta text-meta">
-        Live value {live.toFixed(1)}. Lower favours points; higher favours freshness.
-      </span>
     </div>
   );
 }

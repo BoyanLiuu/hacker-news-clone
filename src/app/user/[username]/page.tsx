@@ -10,7 +10,7 @@ import { formatAgeLong, formatCount } from "@/lib/format";
 import { getCommentsByAuthor } from "@/services/comments";
 import { getPostsByAuthor } from "@/services/posts";
 import { getUserByName } from "@/services/users";
-import { getViewerOpts } from "@/services/viewer";
+import { getViewer, getViewerOpts } from "@/services/viewer";
 import Link from "next/link";
 
 type Params = Promise<{ username: string }>;
@@ -32,7 +32,12 @@ export default async function UserPage({ params, searchParams }: { params: Param
 }
 
 async function Profile({ params, searchParams }: { params: Params; searchParams: Search }) {
-  const [{ username }, search, opts] = await Promise.all([params, searchParams, getViewerOpts()]);
+  const [{ username }, search, viewer, opts] = await Promise.all([
+    params,
+    searchParams,
+    getViewer(),
+    getViewerOpts(),
+  ]);
   const user = (await getUserByName(username))!;
 
   const [posts, comments] = await Promise.all([
@@ -89,6 +94,7 @@ async function Profile({ params, searchParams }: { params: Params; searchParams:
               post,
             }))}
             viewerName={opts.userId}
+            canFlag={viewer?.canFlag ?? false}
           />
         )
       ) : comments.length === 0 ? (

@@ -104,9 +104,40 @@
   }
 }
 
+/**
+ * Every stepped transition reads one variable, so slow motion is a single override rather than a
+ * sweep through the stylesheet. 120 ms with `steps(2, end)` is two jumps — one intermediate frame
+ * held for 60 ms — which is deliberately near the edge of perception on a 10 px glyph. That makes
+ * it hard to *review*, which is what `[data-slow]` is for: `/preview?slow=on` multiplies it 16x,
+ * so the held frame lasts half a second and the two steps are plainly visible.
+ *
+ * Phase 1 tooling, removed in M10 with the rest of the preview switches.
+ */
+:root {
+  --step-duration: 120ms;
+}
+html[data-slow] {
+  --step-duration: 1920ms;
+  --pulse-duration: 5.6s;
+}
+
 @utility step-120 {
-  transition-duration: 120ms;
+  transition-duration: var(--step-duration);
   transition-timing-function: steps(2, end);
+}
+
+/* The one continuous motion in the system, and the only thing here that loops: 1.4 s to 55 %, as
+   DESIGN.md sets it. Tailwind's `animate-pulse` is 2 s to 50 %, which reads as a slower breath than
+   the design asks for, so this replaces it rather than approximating it.
+
+   Opacity only, on bars already sitting on the live grid, so loading causes no layout shift (N8). */
+@keyframes tally-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@utility pulse-skeleton {
+  animation: tally-pulse var(--pulse-duration, 1.4s) ease-in-out infinite;
 }
 
 /* Type hierarchy — DESIGN.md §Typography. Named so a component asks for a role, not a size. */
@@ -206,6 +237,70 @@
    anything inside a collapsed ancestor is hidden by that ancestor anyway. */
 [data-collapsed="true"] .collapsible {
   display: none;
+}
+
+/* Vote feedback — the four states of DESIGN.md's vote button, driven by `data-vote` on the row.
+
+   Every visual here is CSS keyed on that one attribute, which is the point: the state *source*
+   changes in M11 (a search param now, `useOptimistic` then) and none of this has to change with it.
+   It also keeps the listing server-rendered: a client island per row would have put a component on
+   all thirty rows of the busiest page in the product, and M3 measured a delegated controller for
+   collapse costing 10 KB more than the per-row version it replaced. Measured here: `/` ships
+   177.0 KB gz against a 173.9 KB framework floor, and `/?vote=confirmed&row=2` ships the same
+   19.9 KB of HTML as `/`. The states are free.
+
+   Values step rather than fade, in 120 ms, per the doctrine. These are transitions, not animations,
+   so the reduced-motion rule above collapses them to 0.01 ms and every state still lands. */
+.vote-glyph,
+.vote-pad,
+li[data-vote] {
+  transition-property: fill, stroke, background-color;
+  transition-duration: var(--step-duration);
+  transition-timing-function: steps(2, end);
+}
+
+
+/* Voted: the triangle fills petrol and sits on a petrol-tint pad.
+   DESIGN.md §Vote Button specifies the fill ("the triangle fills and strokes petrol") and not the
+   pad, which only the reference comps show. So the pad reuses tokens that already exist rather than
+   introducing a colour: tint while the vote stands, well once it is undone. The fill is the signal
+   either way — and the score beside it does not tween, it steps with the rest of the row. */
+[data-vote="pending"] .vote-glyph,
+[data-vote="confirmed"] .vote-glyph {
+  fill: var(--color-petrol);
+  stroke: var(--color-petrol);
+}
+[data-vote="pending"] .vote-pad,
+[data-vote="confirmed"] .vote-pad {
+  /* DESIGN.md gives hover a "7% petrol wash"; pressed is the same wash, stronger. Extending the
+     rule the design states beats inventing a tint, and it stays legible against the row's own. */
+  background-color: --alpha(var(--color-petrol) / 15%);
+}
+
+/* Rolled back: the glyph returns to outline and the pad goes neutral. No petrol anywhere — petrol
+   marks your own standing state, and the vote no longer stands. The amber note says why. */
+[data-vote="failed"] .vote-pad {
+  background-color: var(--color-rule-2);
+}
+
+/* The row carries the wash, so the whole line reads as one acted-on thing rather than a changed
+   glyph in a column. `--color-cursor` and not `--color-tint`: DESIGN.md gives the acted-on row to
+   the cursor ("the row under the cursor or hover lights in petrol"), this is that same wash, and it
+   has to stay a step lighter than the pad above it or the pad disappears into it. M15's keyboard
+   cursor lights rows with the same token. */
+li[data-vote="pending"],
+li[data-vote="confirmed"] {
+  background-color: var(--color-cursor);
+}
+li[data-vote="failed"] {
+  background-color: var(--color-well);
+}
+
+/* In flight: a dotted petrol underline under the count. Dotted because the number is provisional —
+   the one place the design lets a value say "not settled yet" without moving it. */
+[data-vote="pending"] .vote-points {
+  text-decoration: underline dotted var(--color-petrol);
+  text-underline-offset: 3px;
 }
 
 

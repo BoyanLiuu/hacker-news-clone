@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { users } from "@/fixtures";
-import { PREVIEW_COOKIE, SIGNED_OUT } from "@/services/viewer";
+import { PREVIEW_COOKIE, SIGNED_OUT, SLOW_COOKIE } from "@/services/viewer";
 
 /**
  * The fixture viewer switch: `/preview?as=fernhill&to=/item%3Fid%3D38214`.
@@ -27,6 +27,22 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const params = new URL(request.url).searchParams;
+
+  // `/preview?slow=on&to=/item?id=38214` — 16x every stepped transition, so a 120 ms two-step
+  // animation can actually be reviewed. Independent of `as`, so either can be set alone.
+  const slow = params.get("slow");
+  if (slow === "on" || slow === "off") {
+    const store = await cookies();
+    if (slow === "on") store.set(SLOW_COOKIE, "1", { httpOnly: true, sameSite: "lax", path: "/" });
+    else store.delete(SLOW_COOKIE);
+
+    if (!params.get("as")) {
+      const back = params.get("to") ?? "/";
+      const dest = back.startsWith("/") && !back.startsWith("//") ? back : "/";
+      return new Response(null, { status: 303, headers: { Location: dest } });
+    }
+  }
+
   const as = params.get("as");
   if (!as || !ALLOWED.has(as)) {
     return new Response(`Unknown viewer. One of: ${[...ALLOWED].join(", ")}`, { status: 400 });

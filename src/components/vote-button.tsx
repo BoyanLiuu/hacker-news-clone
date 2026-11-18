@@ -8,15 +8,15 @@ export function DownVoteButton({ label }: { label: string }) {
     <button
       type="button"
       aria-label={`Downvote ${label}`}
-      className="group flex size-[26px] items-center justify-center rounded-soft hover:bg-petrol/7"
+      className="vote-pad group flex size-[26px] items-center justify-center rounded-soft hover:bg-petrol/7"
     >
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="rotate-180">
         <path
           d="M6 2 L11 10 L1 10 Z"
-          fill="none"
+          fill="transparent"
           stroke="currentColor"
           strokeWidth="1.5"
-          className="text-meta group-hover:text-ink"
+          className="vote-glyph text-meta group-hover:text-ink"
         />
       </svg>
     </button>
@@ -28,8 +28,15 @@ export function DownVoteButton({ label }: { label: string }) {
  * arrow turns ink over a 7% petrol wash. Your own items show a 7 px petrol square instead — you
  * cannot vote for yourself, so there is no arrow to offer.
  *
- * DESIGN.md §Vote Button. The pressed, pending, confirmed and rolled-back states arrive with the
- * real action in M11; this milestone delivers the glyph, the hit area and the hover.
+ * DESIGN.md §Vote Button. The four voted states are CSS, keyed on `data-vote` on the row — see
+ * globals.css. This component contributes the two hooks they need, `vote-pad` on the button and
+ * `vote-glyph` on the triangle, and is otherwise a server-rendered button with no state of its own.
+ * M11 brings the action that sets the attribute.
+ *
+ * The idle triangle is `fill="transparent"`, not `fill="none"`. Both draw an unfilled glyph, but
+ * `none` is not a colour and so cannot interpolate: with it, the voted stroke stepped over 120 ms
+ * while the fill snapped at 0 ms, splitting one glyph into two animations. Measured, not assumed —
+ * a declared `transition-property` on a non-interpolatable property is silently inert.
  */
 export function VoteButton({ label, own }: { label: string; own: boolean }) {
   if (own) {
@@ -45,15 +52,15 @@ export function VoteButton({ label, own }: { label: string; own: boolean }) {
     <button
       type="button"
       aria-label={`Upvote ${label}`}
-      className="group flex size-[26px] items-center justify-center rounded-soft hover:bg-petrol/7"
+      className="vote-pad group flex size-[26px] items-center justify-center rounded-soft hover:bg-petrol/7"
     >
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
         <path
           d="M6 2 L11 10 L1 10 Z"
-          fill="none"
+          fill="transparent"
           stroke="currentColor"
           strokeWidth="1.5"
-          className="text-meta group-hover:text-ink"
+          className="vote-glyph text-meta group-hover:text-ink"
         />
       </svg>
     </button>

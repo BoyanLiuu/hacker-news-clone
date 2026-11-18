@@ -5,13 +5,45 @@ import { DecayFigure, FigureCaption, FigureFootnote, toFigurePoints } from "@/co
 import { PageHead, PageShell } from "@/components/page-shell";
 import { OutOfRange, Pager, pageFromParam, pageOutOfRange } from "@/components/pager";
 import { StoryList, StoryListSkeleton } from "@/components/story-list";
-import { toRows } from "@/components/story-row";
+import { toRows, type VoteState } from "@/components/story-row";
 import { CFG } from "@/lib/config";
-import { formatCount } from "@/lib/format";
+import { formatCount, formatUtcTime } from "@/lib/format";
 import { getCandidates, getRankedPage } from "@/services/posts";
-import { getViewerOpts } from "@/services/viewer";
+import { getViewer, getViewerOpts } from "@/services/viewer";
 
-type Search = Promise<{ p?: string }>;
+type Search = Promise<{ p?: string; vote?: string; row?: string }>;
+
+const VOTE_STATES = new Set<VoteState["state"]>(["pending", "confirmed", "failed"]);
+
+/**
+ * `?vote=pending|confirmed|failed&row=<n>` puts one row into one vote state.
+ *
+ * The four states are CSS keyed on `data-vote` (globals.css), so they need a source for that
+ * attribute before the real one exists. M11 reads it from `useOptimistic` after a click; until
+ * then this reads it from the URL, which makes every state addressable, screenshot-comparable
+ * against its reference, and free of client JavaScript on the busiest page in the product.
+ *
+ * It only ever changes what is displayed. No vote is recorded, and `getRankedPage` is not consulted
+ * about it — which is also why the +1 below is arithmetic here rather than anywhere near a service.
+ */
+function previewVote(params: { vote?: string; row?: string }): { rank: number; state: VoteState } | null {
+  const state = params.vote as VoteState["state"] | undefined;
+  if (!state || !VOTE_STATES.has(state)) return null;
+
+  const rank = Number(params.row ?? 1);
+  if (!Number.isInteger(rank) || rank < 1) return null;
+
+  return {
+    rank,
+    state: {
+      state,
+      savedAt: state === "confirmed" ? formatUtcTime(new Date()) : undefined,
+      // Retrying a failed vote puts the row back in flight, which is what retrying is. In M11 this
+      // becomes the action re-posting the vote; the row cannot build the URL itself.
+      retryHref: state === "failed" ? `/?vote=pending&row=${rank}` : undefined,
+    },
+  };
+}
 
 /**
  * The ranked front page. Rendered per request — the ranking is a function of now() — with the
@@ -32,7 +64,7 @@ export default function FrontPage({ searchParams }: { searchParams: Search }) {
 async function RankedList({ searchParams }: { searchParams: Search }) {
   // The query string and the viewer are independent, so they resolve together; the ranked read
   // needs both and waits.
-  const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
+  const [params, viewer, opts] = await Promise.all([searchParams, getViewer(), getViewerOpts()]);
   const page = pageFromParam(params.p);
   const ranked = await getRankedPage(page, opts);
 
@@ -40,9 +72,22 @@ async function RankedList({ searchParams }: { searchParams: Search }) {
 
   const rows = toRows(ranked.items, ranked, (row) => ({ points: row.points, post: row.post }));
 
+  // An optimistic vote shows the score it would become. Applied to the row rather than inside it,
+  // because M11's `useOptimistic` is what will own this arithmetic.
+  const preview = previewVote(params);
+  const shown =
+    preview && preview.state.state !== "failed"
+      ? rows.map((row) => (row.rank === preview.rank ? { ...row, points: row.points + 1 } : row))
+      : rows;
+
   return (
     <>
-      <StoryList rows={rows} viewerName={opts.userId} />
+      <StoryList
+        rows={shown}
+        viewerName={opts.userId}
+        canFlag={viewer?.canFlag ?? false}
+        vote={preview ?? undefined}
+      />
       <Pager page={ranked} basePath="/" />
     </>
   );
@@ -63,7 +108,9 @@ async function FrontAside() {
           <DecayFigure points={toFigurePoints(candidates, pageIds)} gravity={CFG.gravity} />
         </div>
         <FigureFootnote gravity={CFG.gravity} />
-        {/* The interactive version lives at /rank-debug, so the front page costs no JS to read. */}
+        {/* The interactive version lives at /rank-debug, so the figure here is server-rendered SVG
+            and Motion never reaches this page. Measured: `/` ships 177.0 KB gz of JS against a
+            173.9 KB framework floor, and none of it is the figure's. */}
         <p className="mt-2 text-[12px] text-meta">
           <Link href="/rank-debug" className="text-petrol-ink underline underline-offset-2">
             Tune gravity and see every term

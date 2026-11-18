@@ -7,7 +7,7 @@ import { toRows } from "@/components/story-row";
 import { CFG } from "@/lib/config";
 import { formatCount } from "@/lib/format";
 import { getNewestPage } from "@/services/posts";
-import { getViewerOpts } from "@/services/viewer";
+import { getViewer, getViewerOpts } from "@/services/viewer";
 
 type Search = Promise<{ p?: string }>;
 
@@ -24,7 +24,7 @@ export default function NewestPage({ searchParams }: { searchParams: Search }) {
 }
 
 async function NewestList({ searchParams }: { searchParams: Search }) {
-  const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);
+  const [params, viewer, opts] = await Promise.all([searchParams, getViewer(), getViewerOpts()]);
   const page = pageFromParam(params.p);
   const newest = await getNewestPage(page, opts);
 
@@ -34,7 +34,7 @@ async function NewestList({ searchParams }: { searchParams: Search }) {
 
   return (
     <>
-      <StoryList rows={rows} viewerName={opts.userId} />
+      <StoryList rows={rows} viewerName={opts.userId} canFlag={viewer?.canFlag ?? false} />
       <Pager page={newest} basePath="/newest" />
     </>
   );

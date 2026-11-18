@@ -7,8 +7,11 @@
  * typed, never instead of it — that is the debrief's requirement and the reason these are
  * uncontrolled fields with `defaultValue`.
  */
+// The halo steps in with everything else. Visible focus is an a11y requirement (N5), so it is the
+// one piece of motion here that must still arrive instantly under reduced motion — a transition
+// rather than an animation, which the global reduced-motion rule collapses to 0.01 ms.
 const BASE =
-  "w-full rounded-hair border px-[10px] py-2 text-[15px] caret-petrol placeholder:text-meta focus:outline-none focus:shadow-[0_0_0_2px_rgba(0,100,110,.22)]";
+  "w-full rounded-hair border px-[10px] py-2 text-[15px] caret-petrol transition-shadow step-120 placeholder:text-meta focus:outline-none focus:shadow-[0_0_0_2px_rgba(0,100,110,.22)]";
 const VALID = "border-field bg-white hover:border-field-hover focus:border-petrol";
 const INVALID = "border-red bg-[#FFFBFA] focus:border-red";
 

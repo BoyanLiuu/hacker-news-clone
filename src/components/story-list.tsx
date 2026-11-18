@@ -1,4 +1,4 @@
-import { StoryRow, type StoryRowData } from "./story-row";
+import { StoryRow, type StoryRowData, type VoteState } from "./story-row";
 
 /** The five-track grid, shared by the head band, the rows and the skeleton so nothing shifts. */
 const TRACKS =
@@ -25,14 +25,34 @@ const HEAD_BAND = (
  *
  * The head band is hidden at 640 px and below, where each row moves its figures into the meta line.
  */
-export function StoryList({ rows, viewerName }: { rows: StoryRowData[]; viewerName: string | null }) {
+export function StoryList({
+  rows,
+  viewerName,
+  canFlag,
+  vote,
+}: {
+  rows: StoryRowData[];
+  viewerName: string | null;
+  canFlag: boolean;
+  /**
+   * Which row is showing a vote state, and which. One row at a time, because that is what a vote
+   * is — M11 will key this off the row the viewer actually clicked.
+   */
+  vote?: { rank: number; state: VoteState };
+}) {
   return (
     <div className="mt-4 rule-open">
       {HEAD_BAND}
 
       <ol className="rule-close">
         {rows.map((row) => (
-          <StoryRow key={row.post.id} {...row} viewerName={viewerName} />
+          <StoryRow
+            key={row.post.id}
+            {...row}
+            viewerName={viewerName}
+            canFlag={canFlag}
+            vote={vote?.rank === row.rank ? vote.state : undefined}
+          />
         ))}
       </ol>
     </div>
@@ -72,7 +92,7 @@ function Bar({ className = "", style }: { className?: string; style?: React.CSSP
     <span
       aria-hidden="true"
       style={style}
-      className={`block h-[12px] animate-pulse rounded-hair bg-skeleton motion-reduce:animate-none ${className}`}
+      className={`block h-[12px] pulse-skeleton rounded-hair bg-skeleton motion-reduce:animate-none ${className}`}
     />
   );
 }

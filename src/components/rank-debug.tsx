@@ -1,9 +1,35 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
+import { VIEWBOX } from "@/lib/figure";
 import { formatCount } from "@/lib/format";
 import { rank } from "@/lib/rank";
-import { DecayFigureLive, GravitySlider } from "./decay-figure-live";
+import { GravitySlider } from "./gravity-slider";
+
+/**
+ * Motion reaches the browser only here, and only after this page does.
+ *
+ * `bundle-dynamic-imports`: Motion is the one animated target in the product (ARCHITECTURE
+ * Appendix E), and it is worth 31.1 KB gz on exactly one route. Loading it with the route rather than
+ * with the app keeps it off every reading path, which is what N3 and N10 ask for — the front page
+ * renders the same figure statically for the same reason.
+ *
+ * The placeholder holds the figure's exact aspect ratio, so arriving costs no layout shift (N8).
+ */
+const DecayFigureLive = dynamic(
+  () => import("./decay-figure-live").then((mod) => ({ default: mod.DecayFigureLive })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        aria-hidden="true"
+        className="w-full rounded-hair bg-well"
+        style={{ aspectRatio: `${VIEWBOX.width} / ${VIEWBOX.height}` }}
+      />
+    ),
+  },
+);
 
 export type DebugRow = {
   id: number;

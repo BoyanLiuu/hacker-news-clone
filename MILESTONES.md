@@ -14,7 +14,7 @@ Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, 
 | **M3 — Thread and comment tree** | **Done** |
 | **M4 — Figure 1** | **Done** |
 | M5 — Forms, profiles, moderation views, error states | **Done — 16 of 17; `ux-24` blocked on M9** |
-| M6 — Motion pass | Next |
+| M6 — Motion pass | **Done — 4 of 6 CSS items; 2 moved to M15 with their targets** |
 
 ---
 
@@ -645,3 +645,140 @@ ids and inventing them now would be speculative; and the disabled Submit keeps `
 **No test covers the hidden-id invariant.** It needs a component renderer, which this project does not
 have, and adding one for a single assertion is not worth it. It is a browser check, listed in the
 demo above.
+
+---
+
+## M6 — Motion pass · Done
+
+**Objective.** Every animation the design asks for, done once so the JS budget could be measured in one
+go rather than guessed at per milestone.
+
+**Guidance.**
+- `src/app/globals.css` — the vote-state rules keyed on `data-vote`, a `tally-pulse` keyframe at 1.4 s to
+  55 %, and the existing `step-120` utility now actually used by more than one thing
+- `src/components/story-row.tsx` — `VoteState`, the four states' markup, and `canFlag` (see below)
+- `src/components/vote-button.tsx` — two class hooks, `vote-pad` and `vote-glyph`, and no state
+- `src/components/gravity-slider.tsx` — lifted out of `decay-figure-live.tsx` so the dynamic import works
+- `src/components/rank-debug.tsx` — Motion behind `next/dynamic`, with an aspect-ratio placeholder
+- `src/app/page.tsx` — `previewVote`, which reads the state from the URL so all four are addressable
+
+**Test requirements.** None added, deliberately. What M6 changes is CSS and where a 31 KB chunk lands —
+neither is reachable from a unit test, and a test asserting `previewVote` rejects `?vote=nonsense` would
+restate its own `Set`. The verification is measurement and a browser, both below. 57 tests still pass.
+
+**Integrates with.** M11 is the consumer: it changes where `data-vote` comes from (a search param now,
+`useOptimistic` then) and touches none of the CSS. That separation is the deliverable.
+
+**Demo.** Measured in a production build:
+
+| Route | Initial JS | Over floor |
+|---|---|---|
+| `/submit` (floor) | 173.9 KB gz | — |
+| `/` | 177.0 KB gz | +3.1 |
+| `/item?id=38214` | 177.7 KB gz | +3.8 |
+| `/rank-debug` | 173.8 KB gz | Motion on demand |
+
+**Motion is 31.1 KB gz in a chunk no route's initial HTML references** — `/rank-debug` fetches it on
+hydration. The four vote states cost **zero** JS and zero HTML: `/?vote=confirmed&row=2` is 19.9 KB gz,
+the same as `/`.
+
+**Slow motion, because 120 ms is unreviewable by design.** Two steps over 120 ms is one intermediate
+frame held for 60 ms, on a 10 px chevron or a 1 px shadow. That is the doctrine working — instrument
+motion, not app motion — and it also means nobody can confirm by eye that the steps are there. So every
+stepped duration now reads one variable, `--step-duration`, and `/preview?slow=on` overrides it 16x on
+`<html>`: the held frame lasts ~0.8 s and both jumps are obvious. `/preview?slow=off` clears it. Measured
+on: chevron 1.92 s holding 45 degrees for ~0.8 s, vote glyph `transparent -> 50% -> petrol` with the
+midpoint held ~1 s, skeleton pulse 5.6 s. Phase-1 tooling, 404 in production with the rest of `/preview`,
+deleted in M10.
+
+**A declared transition is not an animation — found by trying to watch it.** Computed style said
+`0.12s steps(2)` on the glyph, so I recorded the vote states as stepping. Sampling an actual attribute
+flip showed two of them snapping instead: `fill: none → petrol` cannot interpolate, because `none` is
+not a colour, and the row wash had no `transition-property` declared on the `li` at all. The stroke
+stepped over 120 ms while the fill jumped at 0 ms — one glyph playing two animations. Fixed by drawing
+the idle triangle `fill="transparent"` (same appearance, interpolatable) and adding `li[data-vote]` to
+the transition rule. Re-measured across an attribute flip: `transparent → 50 % → petrol` and
+`well → midpoint → cursor`, two discrete jumps in ~120 ms, collapsing to 1e-05 s under reduced motion.
+
+The general lesson, and it is the third time this project has hit this shape: reading a CSS *declaration*
+back out of `getComputedStyle` confirms what was written, not what happens. Only sampling across a state
+change does.
+
+Doctrine, read out of the DOM rather than asserted: vote glyph and pad `0.12s steps(2)`; collapse chevron
+`0.12s steps(2)` on transform; `tally-pulse` 1.4 s with `50% { opacity: 0.55 }`, matching DESIGN.md
+exactly where Tailwind's `animate-pulse` had been 2 s to 50 %. The points number has
+`transition-duration: 0s` — the score does not tween. Under `prefers-reduced-motion: reduce` every
+duration collapses to 1e-05 s **and every state still lands**: glyph still petrol, row still washed,
+`saved hh:mm:ss` still there. The lazily-loaded figure still animates — moving gravity to 2.6 changes the
+iso-line `d`.
+
+**The states are CSS on one attribute, and that was the design decision.** A client island per row would
+have put a component on all thirty rows of the busiest page, against N3 and N10, and M3 had already
+measured a delegated controller costing more than it saved. Driving everything from `data-vote` meant the
+listing stayed server-rendered, and M11 inherits the presentation for free.
+
+**Two colours are not in DESIGN.md.** It specifies the glyph fill, the dotted count, the saved stamp and
+the amber note — not the pad behind the triangle or the row wash, which only the comps show. Rather than
+invent tints, the pad extends a stated rule (hover is "a 7 % petrol wash", so pressed is that wash at
+15 %) and the row reuses `--color-cursor`, which existed unused for exactly the acted-on row. Rollback
+drops petrol: petrol marks a state that stands, and the vote no longer does. Recorded in Appendix E.
+
+**Two of M6's six CSS items moved to M15, not dropped.** The cursor wash, the new-comment wash and the
+keyboard dialog entry have no targets yet — `j`/`k` and the `?` dialog are M15, a new comment needs M12 —
+and M6's own check ("nothing moves and everything still reaches its final state") cannot be run against a
+state nothing can enter. Writing the CSS nine milestones early and hoping is how the stale comments this
+project keeps finding get written.
+
+**Found while doing it, worth naming:**
+
+1. **The dev server served stale CSS for two revisions.** Computed styles reported the pad and row
+   colours swapped relative to the source. The source was right; Turbopack had not recompiled. I nearly
+   "fixed" correct CSS, and would have recorded a passing result from a stale stylesheet. Fetching the
+   served `.css` and diffing it against the source is what settled it — worth doing whenever a CSS
+   measurement disagrees with the file.
+2. **`StoryRow` offered `flag` to accounts that cannot flag.** M5 gated the thread and the post header on
+   `canFlag` and missed the listing, so the same new account saw no flag link in a thread and a dead one
+   on the front page. Now threaded through `StoryList` from all five listings.
+3. **The plan's M6 was wrong about this codebase in three places**, all corrected: a 15 KB reading-path
+   budget that predates measuring the 174 KB framework floor and was never reachable; "Motion on `/` and
+   `/rank-debug`" when the front page deliberately renders the static figure; and the two CSS items above.
+4. **Three dead imports** in `decay-figure.tsx` and `decay-figure-live.tsx` (`AXES`, `X_TICKS`, `Y_TICKS`,
+   orphaned when `figure-frame.tsx` took over the frame) — removed in the M5 pass, noted here because they
+   were figure code.
+
+**A finding of mine that was wrong, and the correction.** I reported the footer as advertising
+`j k move · u vote · x collapse · ?` since M0 while nothing implemented it. It does not: the keys hint is
+in the reference comps, and `site-footer.tsx` has only ever rendered `Tally · Ranking details · Settings ·
+synthetic sample data`. I read the promise off a PNG and asserted it about the build — the same mistake
+as a comment describing a mechanism that is not switched on, made about a screenshot instead of code. The
+footer is honest; it is simply missing a design element that correctly waits for M15's keys.
+
+**What the audit it prompted did find:** `Retry`, in the rollback note I had just written, was a
+permanently underlined span. In this design an underline means a control, so it looked exactly like a
+working link and did nothing — while every other not-yet-wired affordance (`flag`, `edit`, `unvote`) is a
+bare span specifically so it makes no promise. `Retry` is now a real link to `?vote=pending`, which is
+what retrying does: the row goes back in flight. M11 replaces the href with the action.
+
+### M6 review pass
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`. Code unchanged; **four comments were
+wrong**, which is the whole reason `AGENTS.md` carries that check.
+
+1. **`decay-figure-live.tsx` named the wrong mechanism.** It credited "Next's route splitting" for
+   keeping Motion off the reading paths. True before M6, stale after: `rank-debug.tsx` now pulls the
+   module with `next/dynamic`, which is why no route's *initial HTML* references it at all. The comment
+   would have led the next reader to think the dynamic import was redundant and delete it.
+2. **Two comments carried a stale 32 KB.** That figure came from M4; measured now it is 31.1 KB gz.
+3. **"The front page costs no JS to read" overclaimed**, twice — in `page.tsx` and in the vote CSS
+   header. The front page ships 177.0 KB gz against a 173.9 KB framework floor. What is true is that
+   *the figure* costs no JS there, and that the vote states cost nothing at all: `/?vote=confirmed&row=2`
+   is the same 19.9 KB of HTML as `/`. Both now say that, with the numbers.
+
+Checked and left alone: `motion-reduce:animate-none` on the skeleton bar is redundant with the global
+reduced-motion rule, but it stops an *infinite* animation dead rather than running it once at 0.01 ms,
+and saying it at the point of use is clearer than relying on a rule 80 lines away.
+
+The root layout reads a cookie now, so every route is `ƒ` — which they already all were, so no route
+changed shape. Confirmed in the build output.
+
+**Commit.** `feat: Add stepped motion per the design doctrine`

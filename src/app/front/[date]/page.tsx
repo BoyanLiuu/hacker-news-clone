@@ -7,7 +7,7 @@ import { toRows } from "@/components/story-row";
 import { CFG } from "@/lib/config";
 import { formatIsoDate } from "@/lib/format";
 import { getRankedPage } from "@/services/posts";
-import { getViewerOpts } from "@/services/viewer";
+import { getViewer, getViewerOpts } from "@/services/viewer";
 
 type Params = Promise<{ date: string }>;
 
@@ -36,7 +36,7 @@ export default function PastFrontPage({ params }: { params: Params }) {
 }
 
 async function PastColumn({ params }: { params: Params }) {
-  const [resolved, opts] = await Promise.all([params, getViewerOpts()]);
+  const [resolved, viewer, opts] = await Promise.all([params, getViewer(), getViewerOpts()]);
   const at = parseDate(resolved.date);
   if (!at) {
     return (
@@ -68,7 +68,7 @@ async function PastColumn({ params }: { params: Params }) {
   return (
     <>
       <PageHead title="Past front page" sub={`As it stood on ${formatIsoDate(at)}`} />
-      <StoryList rows={rows} viewerName={opts.userId} />
+      <StoryList rows={rows} viewerName={opts.userId} canFlag={viewer?.canFlag ?? false} />
     </>
   );
 }
