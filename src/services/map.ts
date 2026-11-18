@@ -13,6 +13,24 @@ import { collapseShadow } from "./visibility";
  */
 export const AUTHOR = { select: { username: true, isShadowBanned: true } } as const;
 
+/**
+ * Load relations with a JOIN, not a query per level.
+ *
+ * **Measured, and it is the largest single win in the project so far.** Prisma's default strategy
+ * issues one statement per relation level, sequentially: `RankedPost -> Post -> User` is three
+ * statements. Each one costs a full round trip to Supabase at ~105 ms, while the query inside it
+ * costs 0.26 ms — so the page spent 320 ms to do under a millisecond of database work.
+ *
+ * | strategy | statements | time |
+ * |---|---|---|
+ * | `query` (Prisma's default) | 3 | 320 ms |
+ * | `join` | **1** | **114 ms** |
+ *
+ * Every read below that selects an author pays this, which is why it is set here once rather than
+ * remembered per call site. It needs the `relationJoins` preview feature in the generator block.
+ */
+export const JOIN = { relationLoadStrategy: "join" } as const;
+
 type WithAuthor<T> = T & { author: { username: string; isShadowBanned: boolean } };
 
 type PostRow = {

@@ -3,7 +3,7 @@ import { CFG, DAY, HOUR } from "@/lib/config";
 import { db } from "@/lib/db";
 import { ageHoursBetween, isCandidate, pointsAt, rank } from "@/lib/rank";
 import { NotImplementedInStaticPhase, type Page, type Post, type ScoredPost, type ViewerOpts } from "@/lib/types";
-import { AUTHOR, toPost } from "./map";
+import { AUTHOR, JOIN, toPost } from "./map";
 import { reachableAtPermalinkWhere, visiblePostWhere } from "./visibility";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -51,6 +51,7 @@ async function newestPage(
 
   const [rows, total] = await Promise.all([
     db.post.findMany({
+      ...JOIN,
       where,
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -87,6 +88,7 @@ export const getCandidates = cache(
     const windowStart = new Date(at.getTime() - CFG.windowDays * DAY);
 
     const rows = await db.post.findMany({
+      ...JOIN,
       where: {
         AND: [visiblePostWhere(opts), { createdAt: { lte: at, gte: windowStart } }],
       },
@@ -109,17 +111,107 @@ export const getCandidates = cache(
   },
 );
 
-export async function getRankedPage(page: number, opts: ViewerOpts, at?: Date): Promise<Page<ScoredPost>> {
-  // Paged in memory, because the sort key is computed. M9 moves this to `RankedPost` and an
-  // indexed `ORDER BY score DESC` with real `skip`/`take`.
-  const all = await getCandidates(opts, at ?? new Date());
-  const start = (page - 1) * CFG.pageSize;
+/**
+ * When the ranking was last computed, and whether that is behind.
+ *
+ * This is the real reason `RankedPost` exists, and it is not performance. `ux-24` turns the document
+ * line amber when the ordering is behind, and until something *recorded* when it was computed there
+ * was no honest way to render that — M5 left it hardcoded `false` rather than invent a value.
+ * Inline scoring is always "now" by construction and so can never be stale, which sounds like a
+ * feature and is actually the absence of the measurement.
+ *
+ * `stale` is decided here rather than in the header for the reason M5 learned with `getViewer`: it
+ * depends on the clock, the React compiler rejects `Date.now()` during render, and a rule computed
+ * per component can disagree with itself across one page. Cached, so every consumer sees one answer.
+ *
+ * Behind means older than **twice** the recompute interval. One missed tick is ordinary jitter for a
+ * minute-scheduled job, and amber for that would make the indicator noise; two means the job is not
+ * running, which is worth saying on every page.
+ */
+export type RankingFreshness = { at: Date | null; stale: boolean };
+
+export const getRankingFreshness = cache(async (): Promise<RankingFreshness> => {
+  const row = await db.rankedPost.aggregate({ _max: { computedAt: true } });
+  const at = row._max.computedAt ?? null;
+
   return {
-    items: all.slice(start, start + CFG.pageSize),
+    at,
+    // Never having run is its own kind of stale, and the louder one.
+    stale: at === null || Date.now() - at.getTime() > 2 * CFG.recomputeSeconds * 1000,
+  };
+});
+
+/**
+ * The front page: an index scan on `RankedPost(score DESC)`, paginated in Postgres.
+ *
+ * **Measured before it was built** — ARCHITECTURE Appendix B insisted on comparing both shapes at
+ * real data size rather than materialising on faith. Against 977 posts in the window:
+ *
+ * | | DB execution | round trip |
+ * |---|---|---|
+ * | inline, score and sort in SQL | 23.25 ms | 135.1 ms |
+ * | materialised, index scan | **0.255 ms** | **112.6 ms** |
+ *
+ * 91x less database work, and only ~17% faster end to end, because a Supabase round trip is ~110 ms
+ * and latency dominates. So read speed is a secondary reason at this size; `getRankedAt` above is
+ * the primary one, and the scaling is the third — the inline sort grows with the window while an
+ * index scan does not.
+ *
+ * `at` still routes to the inline path: `RankedPost` holds one moment, and `/front/:date` asks what
+ * the ordering *was*.
+ */
+export async function getRankedPage(page: number, opts: ViewerOpts, at?: Date): Promise<Page<ScoredPost>> {
+  if (at) {
+    const all = await getCandidates(opts, at);
+    const start = (page - 1) * CFG.pageSize;
+    return {
+      items: all.slice(start, start + CFG.pageSize),
+      page,
+      pageSize: CFG.pageSize,
+      total: all.length,
+      hasNext: start + CFG.pageSize < all.length,
+    };
+  }
+
+  // Visibility is re-applied here rather than trusted from the job. The job filters the same three
+  // rules, but it ran up to a minute ago and `showDead` is per-viewer, which no shared table can
+  // encode.
+  const where: Prisma.RankedPostWhereInput = { post: visiblePostWhere(opts) };
+  const pageSize = CFG.pageSize;
+
+  // Two round trips, not three. `computedAt` arrives with the rows, so asking
+  // `getRankingFreshness()` here as well would have added a whole trip for a value already in hand —
+  // and at ~105 ms to Supabase a trip costs 400x what the query inside it costs (0.26 ms measured).
+  // The header calls it separately because it renders in its own Suspense boundary.
+  const [rows, total] = await Promise.all([
+    db.rankedPost.findMany({
+      ...JOIN,
+      where,
+      orderBy: { score: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: { score: true, computedAt: true, post: { select: SELECT } },
+    }),
+    db.rankedPost.count({ where }),
+  ]);
+
+  const asOf = rows[0]?.computedAt ?? new Date();
+
+  return {
+    items: rows.map((row) => {
+      const post = toPost(row.post);
+      return {
+        post,
+        points: post.scoreRaw,
+        // Age as of the computation, so the printed arithmetic reproduces the stored score.
+        ageHours: ageHoursBetween(post.createdAt, asOf),
+        score: Number(row.score),
+      };
+    }),
     page,
-    pageSize: CFG.pageSize,
-    total: all.length,
-    hasNext: start + CFG.pageSize < all.length,
+    pageSize,
+    total,
+    hasNext: (page - 1) * pageSize + pageSize < total,
   };
 }
 
@@ -136,6 +228,7 @@ export async function getPostsByDomain(domain: string, page: number, opts: Viewe
 /** A dead post is reachable here even though listings hide it. */
 export const getPostById = cache(async (id: number, opts: ViewerOpts): Promise<Post | null> => {
   const row = await db.post.findFirst({
+    ...JOIN,
     where: { AND: [reachableAtPermalinkWhere(opts), { id }] },
     select: SELECT,
   });
@@ -145,6 +238,7 @@ export const getPostById = cache(async (id: number, opts: ViewerOpts): Promise<P
 
 export async function getPostsByAuthor(username: string, opts: ViewerOpts): Promise<Post[]> {
   const rows = await db.post.findMany({
+    ...JOIN,
     where: { AND: [visiblePostWhere(opts), { author: { username } }] },
     orderBy: { createdAt: "desc" },
     select: SELECT,

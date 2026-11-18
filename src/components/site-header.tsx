@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CFG } from "@/lib/config";
 import { formatAge, formatUtcTime } from "@/lib/format";
+import { getRankingFreshness } from "@/services/posts";
 import { getViewer } from "@/services/viewer";
 
 /**
@@ -135,14 +136,21 @@ const DOC_ROW =
 
 /**
  * Machine facts only: section, revision, when the ranking last ran, its age, gravity. One row that
- * scrolls rather than wraps, so it holds its 30px height. Turns amber with a live dot when the
- * ranking is stale — wired to a real computedAt in M9.
+ * scrolls rather than wraps, so it holds its 30px height.
+ *
+ * Turns amber with a live dot when the ranking is behind — and `stale` is now a measurement rather
+ * than a literal. M5 left it hardcoded `false` on the grounds that staleness can only be true if
+ * something recorded when the ordering was computed; M9's `RankedPost.computedAt` is that record.
+ *
+ * Stale means "older than twice the recompute interval". One missed tick is normal jitter for a
+ * minute-scheduled job and amber for it would make the indicator noise; two means the job is not
+ * running, which is worth saying on every page.
+ *
+ * `rankedAt` null means the job has never run, which is its own kind of stale — and reads as "never"
+ * rather than as the current time, because showing `now()` there is what made the old version a lie.
  */
 export async function DocumentLine({ section }: { section: string | Promise<string> }) {
-  const label = await section;
-
-  const rankedAt = new Date();
-  const stale = false;
+  const [label, { at: rankedAt, stale }] = await Promise.all([section, getRankingFreshness()]);
 
   return (
     <div className={`border-b ${stale ? "border-amber-line bg-amber-bg" : "border-tint bg-tint/40"}`}>
@@ -152,9 +160,9 @@ export async function DocumentLine({ section }: { section: string | Promise<stri
         <span aria-hidden="true">·</span>
         <span>rev 862</span>
         <span aria-hidden="true">·</span>
-        <span>ranked {formatUtcTime(rankedAt)} UTC</span>
+        <span>ranked {rankedAt ? `${formatUtcTime(rankedAt)} UTC` : "never"}</span>
         <span aria-hidden="true">·</span>
-        <span>{formatAge(rankedAt)} ago</span>
+        <span>{rankedAt ? `${formatAge(rankedAt)} ago` : "job not running"}</span>
         <span className="ml-auto">gravity {CFG.gravity.toFixed(1)}</span>
       </div>
     </div>

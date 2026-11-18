@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { ancestorIds } from "@/lib/path";
 import { buildTree } from "@/lib/tree";
 import { NotImplementedInStaticPhase, type Comment, type CommentNode, type ViewerOpts } from "@/lib/types";
-import { AUTHOR, toComment } from "./map";
+import { AUTHOR, JOIN, toComment } from "./map";
 import { visibleCommentWhere } from "./visibility";
 
 const SELECT = {
@@ -35,6 +35,7 @@ const SELECT = {
  */
 export const getThreadRows = cache(async (postId: number, opts: ViewerOpts): Promise<Comment[]> => {
   const rows = await db.comment.findMany({
+    ...JOIN,
     where: { AND: [visibleCommentWhere(opts), { postId }] },
     orderBy: { path: "asc" },
     select: SELECT,
@@ -61,6 +62,7 @@ export const getSubtree = cache(
     const visible = visibleCommentWhere(opts);
 
     const root = await db.comment.findFirst({
+      ...JOIN,
       where: { AND: [visible, { id: commentId }] },
       select: SELECT,
     });
@@ -69,6 +71,7 @@ export const getSubtree = cache(
     const ancestors = ancestorIds(root.path);
     const [subtreeRows, ancestorRows] = await Promise.all([
       db.comment.findMany({
+        ...JOIN,
         where: { AND: [visible, { postId: root.postId, path: { startsWith: root.path } }] },
         orderBy: { path: "asc" },
         select: SELECT,
@@ -94,6 +97,7 @@ export const getSubtree = cache(
 
 export async function getCommentsByAuthor(username: string, opts: ViewerOpts): Promise<Comment[]> {
   const rows = await db.comment.findMany({
+    ...JOIN,
     where: { AND: [visibleCommentWhere(opts), { author: { username } }] },
     orderBy: { createdAt: "desc" },
     select: SELECT,

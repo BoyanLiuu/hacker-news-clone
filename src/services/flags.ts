@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { NotImplementedInStaticPhase, type ItemType, type Post, type ViewerOpts } from "@/lib/types";
-import { AUTHOR, toPost } from "./map";
+import { AUTHOR, JOIN, toPost } from "./map";
 
 /** Flagging and the moderator actions that act on flagged items. */
 
@@ -37,6 +37,7 @@ export async function getFlagged(opts: ViewerOpts): Promise<FlaggedPost[]> {
   const flagCounts = new Map(grouped.map((g) => [g.itemId, g._count.itemId]));
 
   const rows = await db.post.findMany({
+    ...JOIN,
     where: {
       isDeleted: false,
       OR: [{ isDead: true }, { id: { in: [...flagCounts.keys()] } }],
