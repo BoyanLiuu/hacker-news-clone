@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
-import { findUser } from "@/fixtures";
 import { CFG, DAY } from "@/lib/config";
 import type { User, ViewerOpts } from "@/lib/types";
+import { getUserByName } from "./users";
 
 /**
  * Who is signed in. The second seam after the service layer: phase 1 resolves a fixture user so the
@@ -44,7 +44,9 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   if (requested === SIGNED_OUT) return null;
 
   // An unknown name falls back rather than signing you out, so a stale cookie cannot strand you.
-  const user = findUser(requested ?? DEFAULT_VIEWER) ?? findUser(DEFAULT_VIEWER);
+  // `getUserByName` is cached, so the fallback costs a second query only when the first misses.
+  const user =
+    (await getUserByName(requested ?? DEFAULT_VIEWER)) ?? (await getUserByName(DEFAULT_VIEWER));
   if (!user) return null;
 
   const accountAgeDays = Math.floor((Date.now() - user.createdAt.getTime()) / DAY);

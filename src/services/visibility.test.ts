@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { comments, posts, users } from "@/fixtures";
 import { ANONYMOUS, type Comment, type ViewerOpts } from "@/lib/types";
-import { getThread } from "./comments";
-import { getNewestPage, getPostById } from "./posts";
+import { getCommentsByAuthor, getThread } from "./comments";
+import { getNewestPage, getPostById, getPostsByAuthor } from "./posts";
 import { collapseShadow } from "./visibility";
 
 const MOD: ViewerOpts = { userId: "moss", isModerator: true, showDead: true };
@@ -17,7 +17,12 @@ async function allNewest(opts: ViewerOpts) {
   return items;
 }
 
-describe("dead items", () => {
+// These read Postgres: they are the check that the `where` clauses in visibility.ts enforce the
+// same three rules the fixture predicates did. Skipped without a database rather than failed, so a
+// clone with no .env still runs the pure unit tests.
+const withDb = describe.skipIf(!process.env.DATABASE_URL);
+
+withDb("dead items", () => {
   const dead = posts.find((p) => p.isDead);
 
   it("has a dead post in the fixtures to test against", () => {
@@ -43,7 +48,7 @@ describe("dead items", () => {
   });
 });
 
-describe("shadow bans", () => {
+withDb("shadow bans", () => {
   const shadowed = comments.find((c) => c.isShadow);
 
   it("has a shadow-banned comment in the fixtures to test against", () => {
@@ -102,17 +107,38 @@ describe("labelling shadowed rows for moderators", () => {
       isShadow: false,
     };
 
-    expect(collapseShadow(row).isShadow).toBe(true);
+    expect(collapseShadow(row, true).isShadow).toBe(true);
   });
 
   // Catches: the collapse allocating a new object for every row in a 300-comment thread.
   it("returns the same row untouched when nothing is shadowed", () => {
     const clean = comments.find((c) => !c.isShadow && c.author !== banned!.username)!;
-    expect(collapseShadow(clean)).toBe(clean);
+    expect(collapseShadow(clean, false)).toBe(clean);
   });
 });
 
-describe("deleted comments", () => {
+withDb("filtering by author", () => {
+  // Catches: a caller's `author` filter being overwritten by the visibility clause's own `author`
+  // filter. Both set the same key, so spreading them lets the later one silently win — and the
+  // failure is not an error, it is a profile page listing *everybody's* submissions. Found by the
+  // M7 boundary check, fixed by composing every where with AND.
+  it("returns only that author's posts and comments", async () => {
+    const [posts, comments] = await Promise.all([
+      getPostsByAuthor("mlin", ANONYMOUS),
+      getCommentsByAuthor("mlin", ANONYMOUS),
+    ]);
+
+    expect(posts.length).toBeGreaterThan(0);
+    expect(posts.every((p) => p.author === "mlin")).toBe(true);
+    expect(comments.every((c) => c.author === "mlin")).toBe(true);
+
+    // And it is a real filter, not an accident of a small table.
+    const everything = await getNewestPage(1, ANONYMOUS);
+    expect(everything.total).toBeGreaterThan(posts.length);
+  });
+});
+
+withDb("deleted comments", () => {
   const deleted = comments.find((c) => c.isDeleted);
   const reply = comments.find((c) => c.parentId === deleted?.id);
 

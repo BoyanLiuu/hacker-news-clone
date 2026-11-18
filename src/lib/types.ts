@@ -24,10 +24,16 @@ export const ANONYMOUS: ViewerOpts = Object.freeze({
 export type User = {
   username: string;
   createdAt: Date;
-  /** post karma + comment karma. A cache in phase 2; derived here. */
+  /**
+   * A cache that M11's nightly job recomputes from `Vote`.
+   *
+   * No post/comment split: Appendix D stores one `karma` column, and the split is only derivable
+   * once `Vote` has rows, because `itemType` is what distinguishes the two. The profile showed a
+   * split while the fixtures happened to carry one; over Postgres that became "N from posts · 0
+   * from comments" on every profile — a fabricated number presented as a fact. It comes back in
+   * M11, from votes, or not at all.
+   */
   karma: number;
-  postKarma: number;
-  commentKarma: number;
   about: string;
   isModerator: boolean;
   isShadowBanned: boolean;

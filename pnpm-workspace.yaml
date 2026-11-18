@@ -7,3 +7,6 @@ allowBuilds:
   # `prisma generate` and every query fail at runtime, so it is required, not optional.
   prisma: true
   "@prisma/engines": true
+  # tsx runs the Prisma seed (it resolves the `@/*` tsconfig paths the fixtures use, which Node's
+  # type stripping does not). Its esbuild dependency needs its install step to fetch a binary.
+  esbuild: true

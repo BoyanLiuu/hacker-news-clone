@@ -34,8 +34,8 @@ export default defineConfig({
   },
   migrations: {
     path: "prisma/migrations",
-    // No `seed` yet, deliberately: M8 writes `prisma/seed.ts`. Naming it before it exists makes
-    // `prisma db seed` fail on a missing module, which reads as a broken setup rather than as work
-    // not done.
+    // tsx, not Node's type stripping: the seed imports the fixtures, which use the `@/*` tsconfig
+    // paths that stripping does not resolve.
+    seed: "tsx --env-file=.env prisma/seed.ts",
   },
 });

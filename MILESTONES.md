@@ -16,7 +16,7 @@ Phase 2 begins at M7, which moves the data layer to Postgres without changing a 
 | **M4 — Figure 1** | **Done** |
 | M5 — Forms, profiles, moderation views, error states | **Done — 16 of 17; `ux-24` blocked on M9** |
 | M6 — Motion pass | **Done — 4 of 6 CSS items; 2 moved to M15 with their targets** |
-| M7 — Supabase and Prisma | **Partial — database live; services still on fixtures** |
+| M7 — Supabase and Prisma | **Done — every service reads Postgres** |
 
 ---
 
@@ -787,7 +787,7 @@ changed shape. Confirmed in the build output.
 
 ---
 
-## M7 — Supabase and Prisma · Partial (database live, services still on fixtures)
+## M7 — Supabase and Prisma · Done
 
 **Objective.** Move the data layer to Postgres behind the service boundary Appendix C defines, so the
 screens built in phase 1 keep working with their implementations swapped underneath.
@@ -866,8 +866,79 @@ Reviewed with `code-simplifier` and `vercel-react-best-practices`. Three finding
    a missing module, which reads as a broken setup rather than as M8's work not being done yet. Removed.
 3. `join(import.meta.dirname, ".")` — the `"."` did nothing.
 
-**Still to do in M7:** reimplement `src/services/*` over Prisma with signatures unchanged, hand-insert a
-reply to confirm `path` and `depth`, run the boundary check (stash the services back to fixtures and the
-UI should be identical), then delete `src/fixtures/`.
+### The services, and the boundary check that justified the whole design
 
-**Commit.** `feat: Add the Prisma schema, migration and Supabase wiring`
+All seven services now read Postgres. Not one signature changed, which is what Appendix C was for.
+
+`prisma/seed.ts` came first, because reimplementing against an empty database means every query
+returns `[]` and looks correct. It seeds from the fixtures — 38 users, 69 posts, 457 comments,
+including a 334-comment thread reaching depth 12 — and **recomputes every `path` with the real
+helper, asserting it matches the fixture's precomputed value**. 457 rows of agreement is a stronger
+check on `childPath` than any unit test in the suite. The demo thread renders 330 comments with 4
+behind the depth-cap link, which is the cap working on real data.
+
+**The boundary check found a bug I had written.** Stashing the services back to fixtures and diffing
+the render showed `/user/mlin` listing 12 posts instead of 2. `getPostsByAuthor` spread the
+visibility `where` after its own `author` filter — and `visiblePostWhere` contributes an `author`
+clause for the shadow-ban rule, so the spread **silently overwrote the username constraint**. A
+profile page listing everyone's submissions, no error anywhere. `getCommentsByAuthor` had it too.
+
+The galling part: the comment inside `visibility.ts` warns about exactly this hazard. I guarded it
+*inside* the builder and then reproduced it at four call sites. Every query now composes with `AND`,
+and a test asserts a profile returns only its author's items *and* fewer than the whole table, so it
+cannot pass on a technicality.
+
+After the fix, `/newest`, `/item?id=38214` and `/user/mlin` match the fixture render exactly. One
+post sits two rows lower on the ranked page: that sort depends on `now()`, and the seeded timestamps
+differ from a fresh fixture load by however long ago the seed ran. Only the score-ordered list moved,
+which is clock drift rather than a logic difference.
+
+**What the move to SQL bought, and what it did not.** `/newest` and `/from` now paginate in Postgres
+— `skip`/`take` and a count, 30 rows regardless of table size, which is what M8's 2 000 stories need.
+The ranked page still pages in memory, deliberately: its sort key is computed from `now()` and is
+not indexable, which is the whole reason M9 exists. Doing it early would skip the measurement M9 is
+built around.
+
+**`Flag` cannot be counted relationally.** Appendix D made it polymorphic — one table for posts and
+comments, composite primary key for idempotent flagging — so there is no foreign key to `Post` and
+`_count: { flags: true }` does not exist. `getFlagged` uses a `groupBy` and merges. The trade was
+deliberate; it is recorded in the code because the next person will reach for the relation.
+
+**`src/fixtures/` is not deleted, against the plan's wording.** It is now the seed's input and a
+catalogue of known-interesting ids for the tests. Deleting it would mean re-authoring the seed's
+content by hand and either losing the visibility tests or rewriting them against hand-built rows.
+My judgement, not the plan's.
+
+**The service tests became integration tests.** They read Postgres and skip when `DATABASE_URL` is
+absent, so a clone with no `.env` still runs the pure unit tests. One of them had to stop deriving
+expectations from fixtures: fixture timestamps come from module load time, so asserting fixture
+arithmetic against seeded rows was testing the clock.
+
+### M7 review pass
+
+Reviewed with `code-simplifier` and `vercel-react-best-practices`. Four findings, all fixed, and the
+first was the worst thing in the change:
+
+1. **The profile displayed a fabricated karma split.** `/user/:name` renders "N from posts · M from
+   comments", but Appendix D stores one `karma` column. The mapping filled the gap with
+   `postKarma = karma, commentKarma = 0`, so every profile read "1,284 from posts · 0 from comments"
+   — invented numbers on a page whose premise is that its figures are real. The split is only
+   derivable once `Vote.itemType` exists, in M11. Removed from the model, the mapping, the fixtures
+   and the UI; the type records why and when it returns.
+2. **`getFlagged` accepted a `ViewerOpts` and ignored it.** It returns dead and flagged items —
+   exactly what a kill and a shadow ban hide — so a read that takes an authorization argument and
+   does nothing with it is worse than one that takes none, because the next caller trusts it. Now
+   fails closed for non-moderators, redundantly with the page's own gate.
+3. **The admin page re-fetched a viewer it already held.** Cached, so not a real waterfall, but it
+   reads as one. Passes `viewer.opts` now.
+4. **A test that had silently stopped testing anything.** The quota test asserted on "a post in the
+   last hour" against a seed whose timestamps are relative to when it ran, so an hour after seeding
+   it passed vacuously and then failed outright. It inserts its own row with a known timestamp and
+   deletes it in a `finally`, so a failed assertion cannot leave a stray post on the front page.
+   Verified afterwards: 0 strays, 69 posts.
+
+**Verification.** 62 tests, lint, `tsc` and `pnpm build` green. `pnpm verify:rls` still reports 7
+managed tables, RLS on all, policy-free on all.
+
+**Commit.** `feat: Add the Prisma schema, migration and Supabase wiring` · then
+`feat: Move every service read to Postgres`

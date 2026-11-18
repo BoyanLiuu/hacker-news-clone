@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { users } from "@/fixtures";
+import { db } from "@/lib/db";
 import { PREVIEW_COOKIE, SIGNED_OUT, SLOW_COOKIE } from "@/services/viewer";
 
 /**
@@ -19,7 +19,15 @@ import { PREVIEW_COOKIE, SIGNED_OUT, SLOW_COOKIE } from "@/services/viewer";
  * It grants a view of synthetic data that already ships in the client bundle. Once Clerk owns the
  * session that stops being true, which is why M10 removes it rather than adapting it.
  */
-const ALLOWED = new Set<string>([SIGNED_OUT, ...users.map((u) => u.username)]);
+/**
+ * The allowlist is the usernames that actually exist, read per request rather than from a fixture
+ * list. That keeps it honest after M8 reseeds, and it is the check that stops an arbitrary string
+ * reaching the cookie.
+ */
+async function allowed(): Promise<Set<string>> {
+  const rows = await db.user.findMany({ select: { username: true } });
+  return new Set<string>([SIGNED_OUT, ...rows.map((r) => r.username)]);
+}
 
 export async function GET(request: Request): Promise<Response> {
   if (process.env.NODE_ENV === "production") {
@@ -44,8 +52,9 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const as = params.get("as");
-  if (!as || !ALLOWED.has(as)) {
-    return new Response(`Unknown viewer. One of: ${[...ALLOWED].join(", ")}`, { status: 400 });
+  const names = await allowed();
+  if (!as || !names.has(as)) {
+    return new Response(`Unknown viewer. One of: ${[...names].join(", ")}`, { status: 400 });
   }
 
   // A protocol-relative "//host" is also a valid pathname start, so reject it explicitly.

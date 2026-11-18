@@ -56,11 +56,9 @@ async function Profile({ params, searchParams }: { params: Params; searchParams:
           rows={[
             [
               "Karma",
-              <span key="k">
-                <span className="font-semibold">{formatCount(user.karma)}</span>{" "}
-                <span className="text-meta">
-                  {formatCount(user.postKarma)} from posts · {formatCount(user.commentKarma)} from comments
-                </span>
+              // Total only. The post/comment split needs `Vote.itemType`, which M11 fills in.
+              <span key="k" className="font-semibold">
+                {formatCount(user.karma)}
               </span>,
             ],
             [

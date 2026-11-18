@@ -4,7 +4,7 @@ import { Notice } from "@/components/notice";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { CFG } from "@/lib/config";
 import { formatAge } from "@/lib/format";
-import { posts } from "@/fixtures";
+import { getFlagged } from "@/services/flags";
 import { getViewer } from "@/services/viewer";
 import Link from "next/link";
 
@@ -32,7 +32,7 @@ async function Queue() {
     );
   }
 
-  const queue = posts.filter((post) => post.isDead || post.flags > 0);
+  const queue = await getFlagged(viewer.opts);
 
   if (queue.length === 0) {
     return <p className="mt-6 type-meta text-meta">Nothing flagged. The queue is empty.</p>;
