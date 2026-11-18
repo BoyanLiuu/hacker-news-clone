@@ -1,22 +1,9 @@
-import { cookies } from "next/headers";
+import { auth } from "@clerk/nextjs/server";
 import { cache } from "react";
 import { CFG, DAY } from "@/lib/config";
+import { db } from "@/lib/db";
 import type { User, ViewerOpts } from "@/lib/types";
-import { getUserByName } from "./users";
-
-/**
- * Who is signed in. The second seam after the service layer: phase 1 resolves a fixture user so the
- * own-item marker, "by you" bylines and the karma in the title block all have something real to
- * render. M10 replaces the body of `getViewer` with Clerk's session and nothing above this changes.
- */
-const DEFAULT_VIEWER = "mlin";
-
-/**
- * The cookie `/preview` sets, so the signed-out, new-account and moderator surfaces are reachable
- * without editing code. Phase 1 only: M10 deletes this, the route, and the switcher on `/settings`.
- */
-export const PREVIEW_COOKIE = "tally-preview-as";
-export const SIGNED_OUT = "signed-out";
+import { toUser } from "./map";
 
 /** Set by `/preview?slow=on`. Slows every stepped transition 16x so it can be reviewed. */
 export const SLOW_COOKIE = "tally-slow-motion";
@@ -24,10 +11,8 @@ export const SLOW_COOKIE = "tally-slow-motion";
 /**
  * The viewer plus what they are allowed to do.
  *
- * The permissions are computed here rather than in components for two reasons: they are the
- * debrief's rules, not rendering details, and they depend on the clock — which makes them impure
- * in a render and inconsistent across one page if each component asks separately. Computed once
- * per request, behind `cache()`.
+ * Permissions live here, not in components: they are domain rules that depend on the clock, which
+ * is impure in a render and inconsistent across one page if each component asks separately.
  */
 export type Viewer = {
   user: User;
@@ -39,16 +24,62 @@ export type Viewer = {
   canDownvote: boolean;
 };
 
+type UserRow = {
+  username: string;
+  about: string;
+  karma: number;
+  isModerator: boolean;
+  isShadowBanned: boolean;
+  showDead: boolean;
+  createdAt: Date;
+};
+
+const SELECT = {
+  username: true,
+  about: true,
+  karma: true,
+  isModerator: true,
+  isShadowBanned: true,
+  showDead: true,
+  createdAt: true,
+} as const;
+
+/**
+ * Three states, and the middle one is why this exists apart from `getViewer`.
+ *
+ * Clerk owns identity; this app owns the username, claimed at `/welcome`, which is the URL for every
+ * profile and byline. So a session can be valid while the account is not yet usable here.
+ * `getViewer` collapses that case to `null` — right for rendering, since there is no name to show —
+ * and pages that must send the person somewhere ask this instead.
+ */
+export type AuthState = "anonymous" | "onboarding" | "active";
+
+/**
+ * One read behind both `getAuthState` and `getViewer`.
+ *
+ * They answer different questions about the same row, and asking separately cost two round trips to
+ * Supabase at ~105 ms each — `requireViewer` paid both, sequentially, on every protected page. The
+ * query itself is a primary-key lookup; the trip is the whole cost.
+ */
+const loadSession = cache(async (): Promise<{ signedIn: boolean; row: UserRow | null }> => {
+  const { userId: clerkId } = await auth();
+  if (!clerkId) return { signedIn: false, row: null };
+
+  return { signedIn: true, row: await db.user.findUnique({ where: { clerkId }, select: SELECT }) };
+});
+
+export const getAuthState = cache(async (): Promise<AuthState> => {
+  const { signedIn, row } = await loadSession();
+  if (!signedIn) return "anonymous";
+  return row ? "active" : "onboarding";
+});
+
 export const getViewer = cache(async (): Promise<Viewer | null> => {
-  const requested = (await cookies()).get(PREVIEW_COOKIE)?.value;
-  if (requested === SIGNED_OUT) return null;
+  const { row } = await loadSession();
+  // Signed out, or authenticated but unnamed: either way there is no byline to render.
+  if (!row) return null;
 
-  // An unknown name falls back rather than signing you out, so a stale cookie cannot strand you.
-  // `getUserByName` is cached, so the fallback costs a second query only when the first misses.
-  const user =
-    (await getUserByName(requested ?? DEFAULT_VIEWER)) ?? (await getUserByName(DEFAULT_VIEWER));
-  if (!user) return null;
-
+  const user = toUser(row);
   const accountAgeDays = Math.floor((Date.now() - user.createdAt.getTime()) / DAY);
   const established = accountAgeDays >= CFG.flagMinDays && user.karma >= CFG.flagMinKarma;
 

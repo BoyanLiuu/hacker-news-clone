@@ -1,8 +1,9 @@
+import { SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { CFG } from "@/lib/config";
 import { formatAge, formatUtcTime } from "@/lib/format";
 import { getRankingFreshness } from "@/services/posts";
-import { getViewer } from "@/services/viewer";
+import { getAuthState, getViewer } from "@/services/viewer";
 
 /**
  * Pinned locale. A bare toLocaleString() formats against the server's locale, so the thousands
@@ -99,13 +100,29 @@ export function SiteHeader({
   );
 }
 
+/**
+ * Three states, matching `AuthState`. The middle one is the reason this is not a simple
+ * signed-in/signed-out pair: a Clerk session with no username yet has nothing to put in a byline,
+ * so it gets a link to finish rather than a name.
+ *
+ * `SignOutButton` is Clerk's — the old `/logout` route never existed, which nothing noticed because
+ * phase 1 had no session to end.
+ */
 export async function AccountBlock() {
-  const viewer = await getViewer();
+  const [viewer, state] = await Promise.all([getViewer(), getAuthState()]);
+
+  if (state === "anonymous") {
+    return (
+      <Link href="/sign-in" className="font-semibold text-ink">
+        Log in
+      </Link>
+    );
+  }
 
   if (!viewer) {
     return (
-      <Link href="/login" className="font-semibold text-ink">
-        Log in
+      <Link href="/welcome" className="font-semibold text-ink">
+        Choose a username
       </Link>
     );
   }
@@ -119,9 +136,11 @@ export async function AccountBlock() {
       <Link href="/settings" className="text-ink-2">
         Settings
       </Link>
-      <Link href="/logout" className="text-ink-2">
-        Log out
-      </Link>
+      <SignOutButton>
+        <button type="button" className="text-ink-2 hover:underline">
+          Log out
+        </button>
+      </SignOutButton>
     </>
   );
 }

@@ -6,12 +6,24 @@ import { SubmitForm } from "@/components/submit-form";
 import { CFG, HOUR } from "@/lib/config";
 import { formatUntil, formatUtcClock } from "@/lib/format";
 import { getSubmitQuota, type SubmitQuota } from "@/services/posts";
-import { getViewer, getViewerOpts } from "@/services/viewer";
+import { requireViewer } from "@/services/require";
+import { getViewerOpts } from "@/services/viewer";
 
 type Search = Promise<{ limited?: string }>;
 
-/** A link or a text post, never both. The rules sit beside the form rather than being discovered. */
-export default function SubmitPage({ searchParams }: { searchParams: Search }) {
+/**
+ * A link or a text post, never both. The rules sit beside the form rather than being discovered.
+ *
+ * The gate runs in the page body, not inside the `Suspense` child.
+ *
+ * A `redirect()` after streaming has begun cannot set a status: the shell flushes 200 and the
+ * redirect travels in the payload, so a reader without JavaScript gets a blank page and a crawler
+ * records a 200. Same lesson as `notFound()` in `item/page.tsx` — the check that decides whether a
+ * page exists at all has to happen before the first byte.
+ */
+export default async function SubmitPage({ searchParams }: { searchParams: Search }) {
+  await requireViewer();
+
   return (
     <PageShell nav="Submit" section="submit" aside={<Rules searchParams={searchParams} />}>
       <PageHead title="Submit" sub="A link or a text post, not both." />
@@ -41,16 +53,8 @@ const readQuota = cache(async (searchParams: Search): Promise<SubmitQuota> => {
 });
 
 async function Form({ searchParams }: { searchParams: Search }) {
-  const [viewer, quota] = await Promise.all([getViewer(), readQuota(searchParams)]);
-
-  // Signed out, the form is not offered at all — the debrief requires an account to submit.
-  if (!viewer) {
-    return (
-      <Notice tone="info" action={<a href="/login" className="font-semibold underline underline-offset-2">Log in</a>}>
-        Submitting needs an account. Reading does not.
-      </Notice>
-    );
-  }
+  // Already gated by the page; `getViewer` cannot be null here, but the type says it can.
+  const [viewer, quota] = await Promise.all([requireViewer(), readQuota(searchParams)]);
 
   // Formatted here, on the server, because both strings are read off the clock: a client component
   // rendering "in 49 minutes" would hydrate against a different minute than it rendered in.

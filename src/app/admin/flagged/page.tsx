@@ -5,11 +5,14 @@ import { PageHead, PageShell } from "@/components/page-shell";
 import { CFG } from "@/lib/config";
 import { formatAge } from "@/lib/format";
 import { getFlagged } from "@/services/flags";
-import { getViewer } from "@/services/viewer";
+import { requireModerator, requireViewer } from "@/services/require";
 import Link from "next/link";
 
 /** The review queue: flagged and dead items, with Kill and Restore as text actions. */
-export default function FlaggedPage() {
+export default async function FlaggedPage() {
+  // Gated before streaming, so a signed-out visitor gets a real redirect — see submit/page.tsx.
+  await requireViewer();
+
   return (
     <PageShell nav="" section="moderation" aside={<Thresholds />}>
       <PageHead title="Flagged and dead" sub="Items awaiting review." />
@@ -21,10 +24,10 @@ export default function FlaggedPage() {
 }
 
 async function Queue() {
-  const viewer = await getViewer();
+  // Redirects a signed-out visitor; returns null for a signed-in non-moderator.
+  const viewer = await requireModerator();
 
-  // Moderators only. Anyone else gets told plainly rather than shown an empty page.
-  if (!viewer?.user.isModerator) {
+  if (!viewer) {
     return (
       <Notice tone="info" action={<Link href="/" className="font-semibold underline underline-offset-2">Front page</Link>}>
         This queue is for moderators.

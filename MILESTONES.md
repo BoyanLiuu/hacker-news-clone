@@ -6,6 +6,7 @@ Architecture: `../docs/project-idea/28-hacker-news-clone/ARCHITECTURE.md`
 
 Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, no sign-in.
 Phase 2 begins at M7, which moves the data layer to Postgres without changing a service signature.
+Phase 3 begins at M10, which replaces the fixture viewer with a real session.
 
 | Milestone | Status |
 |---|---|
@@ -19,6 +20,7 @@ Phase 2 begins at M7, which moves the data layer to Postgres without changing a 
 | M7 — Supabase and Prisma | **Done — every service reads Postgres** |
 | M8 — Seed with real data | **Done — 1 380 stories, 134 459 comments** |
 | M9 — The ranking job, measured | **Done — materialised, measured, `/front/:date` dropped** |
+| M10 — Clerk | **Partial — wired and gated; signed-in path unverified** |
 
 ---
 
@@ -1198,3 +1200,90 @@ page is worse than no cache.
 
 **Commit.** `feat: Add time-decay ranking with measured query plans` · then
 `feat: Finish M9 — cache the front page and drop /front/:date`
+
+---
+
+## M10 — Clerk · Partial (wired and gated; signed-in path unverified)
+
+**Objective.** Replace the phase-1 fixture viewer with a real session, and let an account claim the
+username that is its profile URL and every byline.
+
+**Guidance.**
+- `src/proxy.ts` — bare `clerkMiddleware()`, per current guidance.
+- `src/services/viewer.ts` — `loadSession`, `getAuthState`, `getViewer` over Clerk's `auth()`.
+- `src/services/require.ts` — the page gates.
+- `src/services/onboarding.ts` — `claimUsername`, which creates the `User` row.
+- `src/app/welcome/` — the claim page and its form.
+- `src/components/clerk-appearance.ts` — Clerk's prebuilt forms dressed as Tally's.
+
+**Test requirements.** None added yet, and that is the honest gap: the suite cannot sign in. 63 tests
+still pass. Verified instead by request: reading paths 200 with 30 rows, and all four protected routes
+307 to `/sign-in`.
+
+**Integrates with.** Everything above the services already read `getViewer`, so the swap was behind
+the same seam Appendix C set up — no call site changed.
+
+**Demo.** Signed out, measured against the running production build:
+
+| Route | Status | Location |
+|---|---|---|
+| `/`, `/newest`, `/item` | 200 | — |
+| `/submit`, `/settings`, `/admin/flagged`, `/welcome` | **307** | `/sign-in` |
+
+`clerk doctor`: authenticated, linked to `app_3MIXHf3xKs3VPCgpq2GkEEZFlJo`, development instance, keys
+in `.env` beside the database vars — which were backed up first and all survived.
+
+### Three deviations from the plan's checklist
+
+**Route protection is per-page, not middleware.** The plan says middleware redirects every authed
+route. `createRouteMatcher` is deprecated in `@clerk/nextjs` 7 and current guidance is a bare
+`clerkMiddleware()` with the check beside what it guards. That also keeps a database read out of
+middleware, which the username rule would otherwise need on every request.
+
+**`/preview` survives with its dangerous half removed.** The plan says delete the file. The `as=`
+viewer switch is gone — harmless over fixtures, privilege escalation over real sessions — and
+`slow=on`, the motion-review tool, stays. It still 404s in production. The name is now misleading and
+renaming it is unfinished business.
+
+**Only four Clerk `appearance` variables survive.** Clerk 7 renamed most of the colour tokens
+(`colorText`, `colorInputBackground` and others are gone). Rather than guess at new names, the rest
+of the theming goes through `elements` with this project's own classes, which cannot drift with
+Clerk's vocabulary.
+
+### The gates were in the wrong place, and returned 200
+
+First version put `requireViewer()` inside the `Suspense` child. Signed out, `/submit`, `/settings`
+and `/admin/flagged` all answered **200**: a `redirect()` issued after streaming has begun cannot set
+a status, so the shell flushed and the redirect travelled in the payload. No data leaked — no forms,
+no inputs, nothing from the moderation queue — but a reader without JavaScript got a blank page and a
+crawler recorded a 200.
+
+**This is the third time this project has hit the same shape**: `notFound()` in `item/page.tsx` in M5,
+and the Suspense boundary swallowing the cache's `Date` error in M9. A check that decides whether a
+page exists at all has to run before the first byte. Gates now live in the page body; all four
+redirect with a real 307.
+
+### Review findings
+
+1. **The session was read twice per request, sequentially in the gate.** `getAuthState` counted by
+   `clerkId` and `getViewer` did a `findUnique` on the same row — two primary-key lookups, so the
+   query was free and the two ~105 ms round trips were the entire cost. `requireViewer` paid both in
+   order, so every protected page spent ~210 ms answering one question about one row. Both now derive
+   from a single cached `loadSession()`.
+2. **The claim action reported a database outage as "username taken".** A bare `catch` around
+   `db.user.create` treated every failure as a collision, so a Postgres outage would tell someone
+   their name was taken and send them off inventing another. Now it matches Prisma's `P2002` on the
+   `code` field and rethrows anything else.
+
+### Known gap
+
+**The entire signed-in path is unexercised.** The claim flow, lazy row creation, the header's
+username and karma, and every own-item surface have never run against a real session. Clerk's own
+guidance is to ask before creating users in an existing application, so this waits on either a test
+user or a human signing in with Google.
+
+Three checklist items also remain: Google OAuth as the primary strategy (a Clerk dashboard setting,
+not code), `<UserProfile/>` for email and password, and the M10 check itself — "sign in with Google
+on a fresh account and you land on `/welcome`".
+
+**Commit.** `feat: Add Clerk auth with username onboarding`
