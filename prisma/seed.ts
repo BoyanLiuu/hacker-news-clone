@@ -28,6 +28,9 @@ import { childPath, depthOf } from "@/lib/path";
  * tsx process does not, and `src/lib/db.ts` is imported before any statement here could load it.
  */
 
+/** The schema this app owns — see ARCHITECTURE Appendix D. Raw SQL below must qualify with it. */
+const APP_SCHEMA = "hacker_news_clone";
+
 /** Fixture ids are preserved so every `/item?id=38214` URL in the design references still resolves. */
 async function main() {
   const existing = await db.post.count();
@@ -137,10 +140,17 @@ async function main() {
   // Explicit ids leave every sequence at 1, so the first real insert would collide with a seeded
   // row and keep colliding until it climbed past the highest seeded id. Nothing in the app would
   // report this as a seeding problem.
+  // Schema-qualified, and that is not cosmetic: the app owns a schema now, these are raw SQL so
+  // Prisma does not qualify them, and `search_path` does not include it. Unqualified, this failed
+  // with `relation "User" does not exist` — leaving every sequence at 1, which is the exact
+  // collision this step exists to prevent.
   console.log("resetting id sequences past the seeded rows…");
   for (const table of ["User", "Post", "Comment"]) {
     await db.$executeRawUnsafe(
-      `SELECT setval(pg_get_serial_sequence('"${table}"', 'id'), COALESCE((SELECT MAX(id) FROM "${table}"), 1))`,
+      `SELECT setval(
+         pg_get_serial_sequence('"${APP_SCHEMA}"."${table}"', 'id'),
+         COALESCE((SELECT MAX(id) FROM "${APP_SCHEMA}"."${table}"), 1)
+       )`,
     );
   }
 

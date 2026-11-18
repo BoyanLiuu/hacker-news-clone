@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { hasFixtureDataset } from "./dataset";
 import { CFG, HOUR } from "@/lib/config";
 import { db } from "@/lib/db";
 import { ANONYMOUS, type ViewerOpts } from "@/lib/types";
@@ -9,7 +10,7 @@ const MLIN: ViewerOpts = { userId: "mlin", isModerator: false, showDead: false }
 // Reads Postgres. Expectations come from the database, not from the fixtures: fixture timestamps
 // are derived from *module load time*, so a fresh import and the seeded rows drift apart by however
 // long ago the seed ran. Asserting fixture arithmetic against seeded rows tests the clock.
-describe.skipIf(!process.env.DATABASE_URL)("the hourly submission allowance", () => {
+describe.skipIf(!(await hasFixtureDataset()))("the hourly submission allowance", () => {
   // Catches: a signed-out visitor being told they have used part of an allowance that does not
   // apply to them, which is how a "you have reached the limit" notice reaches a page with no form.
   it("is untouched for a signed-out visitor", async () => {

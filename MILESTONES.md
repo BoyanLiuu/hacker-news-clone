@@ -17,6 +17,7 @@ Phase 2 begins at M7, which moves the data layer to Postgres without changing a 
 | M5 — Forms, profiles, moderation views, error states | **Done — 16 of 17; `ux-24` blocked on M9** |
 | M6 — Motion pass | **Done — 4 of 6 CSS items; 2 moved to M15 with their targets** |
 | M7 — Supabase and Prisma | **Done — every service reads Postgres** |
+| M8 — Seed with real data | **Done — 1 380 stories, 134 459 comments** |
 
 ---
 
@@ -973,3 +974,115 @@ vacuously. 63 tests.
 
 **Commit.** `feat: Add the Prisma schema, migration and Supabase wiring` · then
 `feat: Move every service read to Postgres` · then `refactor: Give the app its own Postgres schema`
+
+---
+
+## M8 — Seed with real data · Done
+
+**Objective.** Real stories and real comment trees, at enough volume that the indexes, the pagination
+and the ranking window are exercised by data rather than by 69 fixture posts.
+
+**Guidance.**
+- `scripts/import-hn.ts` + `pnpm db:seed:hn [stories]` — the importer.
+- `src/services/dataset.ts` — which dataset is loaded, so the moderation tests know whether to run.
+- `src/types/pg-copy-streams.d.ts` — the package ships no types; the streams are pg `Submittable`s as
+  well as Node streams, and saying so is what makes `client.query(copyFrom(sql))` typecheck without a
+  cast.
+
+**Test requirements.** No new unit tests: what M8 changes is the *contents* of a database, and the
+assertions worth making are about this dataset rather than about code. They are run as queries in the
+demo below — orphans, depth/path agreement, sequence state. 63 tests still pass, 12 of them skipping on
+this dataset by design.
+
+**Integrates with.** Nothing above the services changed. The import writes the same tables M7's reads
+already query.
+
+**Demo.** `pnpm db:seed:hn 2000`, in about two minutes:
+
+| | |
+|---|---|
+| Stories | 1 380 |
+| Comments | 134 459 |
+| Users | 25 560 |
+| Size | 118 MB of the 500 MB free tier |
+| Orphaned comments | **0** |
+| Depth/path disagreements | **0** |
+| Max depth | 22 (the cap is 8, so "continue this thread" is exercised) |
+| Posts in the 7-day ranking window | 737 |
+
+### Three decisions, each forced by a measurement
+
+**Algolia, not the Firebase API the plan names.** Firebase serves one item per request — 60 000+ for
+this import. Algolia's `/items/{id}` returns a whole tree in one, so it is ~2 000. Same data, two orders
+of magnitude fewer requests on someone else's free API.
+
+**Comments capped at 400 per story, because uncapped was unaffordable.** A 40-story trial imported
+14 048 comments and cost 15.2 MB, which scales to **~760 MB against a 500 MB tier** shared with other
+apps. My first estimate, taken from fixture data, said 10–33 MB — **wrong by 25x**, because real
+comments average 282 characters where fixtures averaged 88, one thread alone had 3 490 comments, and
+every distinct commenter becomes a `User` row (6 086 of them from 40 stories).
+
+The truncation is **breadth-first**, and that is the load-bearing detail. Depth-first would keep one
+deep chain and discard every sibling, which reads as a thread nobody replied to. And a node is only
+kept if its parent was, because `path` encodes ancestry — an orphan carries a path whose prefix does
+not exist, and `buildTree` would drop it and its children silently. Verified: 0 orphans in 134 459 rows.
+
+**Two seeds, not one.** The HN import has no dead or shadow-banned rows, so it broke 8 visibility
+tests. They now detect the fixture dataset and skip. The alternative was marking a named real person as
+shadow-banned to satisfy a test, which is not a trade worth making. `pnpm db:seed` is the dataset the
+suite expects; `pnpm db:seed:hn` is the realistic one.
+
+### The thread HTML budget is missed, and the fixtures hid it
+
+Measured in production against the real dataset:
+
+| Route | Time | HTML gz | vs 50 KB |
+|---|---|---|---|
+| `/` | 570 ms | 37.1 KB | within |
+| `/newest` | 340 ms | 14.1 KB | within |
+| `/newest?p=10` | 360 ms | 14.7 KB | **flat** |
+| `/newest?p=30` | 360 ms | 15.2 KB | **flat** |
+| `/item` (400 comments) | 630 ms | **164.8 KB** | **3.3x over** |
+
+Phase 1's 334-comment thread fit in 18.0 KB. Nothing about the rendering changed — the content got
+three times denser, and the budget was set before anyone measured real content against it. Recorded in
+ARCHITECTURE §6.3 as a missed target rather than quietly adjusted; M14 decides whether threads paginate
+or the ceiling was wrong.
+
+The flat pagination is the good news, and it is M7's `skip`/`take` proving itself: page 30 costs what
+page 1 costs.
+
+### Two bugs only a full database could show
+
+**Reseeding was impossible.** `DELETE FROM "Comment"` across 133 726 rows exceeded Supabase's statement
+timeout and aborted the transaction, so the import worked exactly once and the *second* run failed.
+`TRUNCATE` now, one statement listing every table: it drops storage instead of walking rows and
+satisfies the foreign keys without CASCADE or an ordering. The failed transaction rolled back cleanly —
+all rows intact, no partial state.
+
+**Swallowed errors made me report the wrong cause.** `catch { failed++ }` printed a bare count, so I
+attributed 364 losses to rate limiting. Once the script tallied *reasons*, the status was
+`403 Forbidden` in a contiguous block — Algolia throttling by volume rather than returning 429 — and
+403 was not in the retry set, so those requests failed on the first attempt. Adding it took failures
+from 364 to 123 and stories from 1 139 to 1 380 on the same workload. A count is not a diagnosis.
+
+### Also found and fixed
+
+- **The fixture seed's sequence reset was silently failing** after the schema move: `pg_get_serial_sequence`
+  is raw SQL, Prisma does not qualify it, and `search_path` does not include the app's schema. It failed
+  with `relation "User" does not exist`, leaving every sequence at 1 — the exact collision the step
+  exists to prevent. Verified fixed: sequences now sit at 38 / 38418 / 44379.
+- A magic column index (`rows.posts[len - 1][7] = …`) patched `commentCount` after the fact, which a
+  column reorder would have corrupted silently. The tree is walked first now.
+- Control characters are stripped before COPY. Not a live defect — 117 comments carry backslashes and
+  round-tripped intact, zero control characters — but one NUL byte rejects the COPY and takes the
+  transaction with it, losing 134 000 rows to one character.
+
+### Known gap
+
+**1 380 stories, not the plan's 2 000.** 123 were lost to throttling and the 30-day window only yielded
+1 503 candidates at `points>1`. The plan's check — paginate `/newest` to page 10 — passes at 46 pages.
+Widening the window or lowering the points filter would close it; neither seemed worth another full
+import for a number that was approximate in the plan.
+
+**Commit.** `feat: Import real Hacker News stories and comment trees`

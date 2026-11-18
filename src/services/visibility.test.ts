@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { hasFixtureDataset } from "./dataset";
 import { comments, posts, users } from "@/fixtures";
 import { ANONYMOUS, type Comment, type ViewerOpts } from "@/lib/types";
 import { getCommentsByAuthor, getThread } from "./comments";
@@ -18,9 +19,13 @@ async function allNewest(opts: ViewerOpts) {
 }
 
 // These read Postgres: they are the check that the `where` clauses in visibility.ts enforce the
-// same three rules the fixture predicates did. Skipped without a database rather than failed, so a
-// clone with no .env still runs the pure unit tests.
-const withDb = describe.skipIf(!process.env.DATABASE_URL);
+// same three rules the fixture predicates did.
+//
+// Gated on the *fixture* dataset, not merely on a database. The rules are about dead, shadow-banned
+// and deleted items, and only `pnpm db:seed` has any — the Hacker News import (`pnpm db:seed:hn`)
+// is real volume but contains no moderation state, because marking a named real person as
+// shadow-banned to satisfy a test is not a trade this project makes. See services/dataset.ts.
+const withDb = describe.skipIf(!(await hasFixtureDataset()));
 
 withDb("dead items", () => {
   const dead = posts.find((p) => p.isDead);
