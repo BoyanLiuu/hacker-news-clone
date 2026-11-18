@@ -1,69 +1,55 @@
-import Image from "next/image";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
 
-export default function Home() {
+export default function FrontPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+    <div className="flex min-h-dvh flex-col">
+      <SiteHeader
+        current="Front"
+        viewer={{ name: "mlin", karma: 1284 }}
+        doc={{ section: "front page", rev: 862, rankedAt: "14:31:22", age: "39 s", gravity: 1.8 }}
+      />
+
+      <main className="mx-auto w-full max-w-wrap grow px-4 pt-6 sm:px-8">
+        <div className="page-grid">
+          <div>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 tabIndex={-1} className="type-title">
+                Front page
+              </h1>
+              <span className="text-[13.5px] text-meta">
+                68 candidates from the last 7 days, ranked by score and age
+              </span>
+            </div>
+
+            {/* The ranked list lands in M2. The rules are here so the grid and type can be checked now. */}
+            <div className="mt-4 rule-open">
+              {/* The head band is hidden at 640px and below; its figures move into each row's meta line. */}
+              <div className="hidden grid-cols-[30px_70px_1fr_52px_74px] gap-x-3 bg-head px-1 py-[7px] type-label text-ink-2 sm:grid">
+                <span className="text-right">#</span>
+                <span className="text-right">Points</span>
+                <span>Story</span>
+                <span className="text-right">Age</span>
+                <span className="text-right">Comments</span>
+              </div>
+              <p className="rule-divide px-1 py-[7px] type-meta text-meta">
+                Ranked rows arrive in M2.
+              </p>
+              <div className="rule-close" />
+            </div>
+          </div>
+
+          <aside className="page-aside">
+            <h2 className="type-section">
+              <span className="pr-2 font-medium text-meta">Figure 1</span>
+              Score against age
+            </h2>
+            <p className="mt-2 type-meta text-meta">The decay characteristic arrives in M4.</p>
+          </aside>
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }
