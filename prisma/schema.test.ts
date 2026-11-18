@@ -26,8 +26,9 @@ describe("the schema and its migrations", () => {
   // the build would notice, which is why this is a test and not a code review note.
   it("enables row level security on every table", () => {
     const sql = allMigrationSql();
+    // Table names are schema-qualified now, so match an optional `"schema".` prefix.
     const withRls = new Set(
-      [...sql.matchAll(/ALTER TABLE "(\w+)" ENABLE ROW LEVEL SECURITY/g)].map((m) => m[1]),
+      [...sql.matchAll(/ALTER TABLE (?:"[\w]+"\.)?"(\w+)" ENABLE ROW LEVEL SECURITY/g)].map((m) => m[1]),
     );
     const missing = models.filter((name) => !withRls.has(name));
     expect(missing, `models without RLS: ${missing.join(", ")}`).toEqual([]);
@@ -36,6 +37,20 @@ describe("the schema and its migrations", () => {
   // Catches: a URL put back into the datasource block. Prisma 7 rejects it, so this would be caught
   // at generate time too — but the failure reads as a parse error, and the fix someone reaches for
   // is to downgrade Prisma rather than to use the config file and the driver adapter.
+  // Catches: a model added without `@@schema`, which `multiSchema` would reject at generate time —
+  // but the error names Prisma, not this decision, and the tempting fix is to delete `schemas`
+  // from the datasource and quietly move the app back into `public`.
+  it("puts every model in the app's own schema, not public", () => {
+    const declared = schema.match(/schemas\s*=\s*\[\s*"([^"]+)"/)?.[1];
+    expect(declared).toBeTruthy();
+    expect(declared).not.toBe("public");
+
+    const tagged = [...schema.matchAll(/@@schema\("([^"]+)"\)/g)].map((m) => m[1]);
+    // one per model plus one for the ItemType enum
+    expect(tagged.length).toBe(models.length + 1);
+    expect(tagged.every((s) => s === declared)).toBe(true);
+  });
+
   it("keeps connection strings out of the schema", () => {
     const datasource = schema.match(/datasource\s+\w+\s*\{[^}]*\}/)?.[0] ?? "";
     expect(datasource).not.toMatch(/\burl\s*=/);

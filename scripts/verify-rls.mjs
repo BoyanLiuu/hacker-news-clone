@@ -12,21 +12,43 @@ import pg from "pg";
 
 process.loadEnvFile();
 
+// The app owns a schema rather than living in `public` — ARCHITECTURE Appendix D. Read from the
+// Prisma schema rather than repeated here, so renaming it cannot leave this check pointing at an
+// empty namespace and reporting success.
+const schemaFile = new URL("../prisma/schema.prisma", import.meta.url);
+const APP_SCHEMA = (await import("node:fs")).readFileSync(schemaFile, "utf8").match(
+  /schemas\s*=\s*\[\s*"([^"]+)"/,
+)?.[1];
+
+if (!APP_SCHEMA) {
+  console.error("Could not read the app schema name from prisma/schema.prisma");
+  process.exit(1);
+}
+
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
 await client.connect();
 
-const { rows } = await client.query(`
-  SELECT t.tablename,
-         t.rowsecurity,
-         (SELECT count(*) FROM pg_policies p
-           WHERE p.schemaname = t.schemaname AND p.tablename = t.tablename)::int AS policies
-  FROM pg_tables t
-  WHERE t.schemaname = 'public'
-  ORDER BY t.tablename`);
+const { rows } = await client.query(
+  `SELECT t.tablename,
+          t.rowsecurity,
+          (SELECT count(*) FROM pg_policies p
+            WHERE p.schemaname = t.schemaname AND p.tablename = t.tablename)::int AS policies
+   FROM pg_tables t
+   WHERE t.schemaname = $1
+   ORDER BY t.tablename`,
+  [APP_SCHEMA],
+);
+
+if (rows.length === 0) {
+  // An empty schema would otherwise pass every assertion below vacuously.
+  console.error(`No tables found in schema "${APP_SCHEMA}". Has the migration been applied?`);
+  process.exit(1);
+}
 
 // Prisma's own bookkeeping table is not ours to lock down: migrate must read and write it.
 const managed = rows.filter((r) => !r.tablename.startsWith("_prisma"));
 
+console.log(`schema: ${APP_SCHEMA}\n`);
 console.log("table               rls     policies");
 for (const r of rows) {
   const internal = r.tablename.startsWith("_prisma");

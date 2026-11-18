@@ -7,6 +7,11 @@
 // No `url` or `directUrl` in this block: Prisma 7 rejects them. The migrate URL lives in
 // `prisma.config.ts` and the runtime URL reaches the client through the PrismaPg driver adapter —
 // see `src/lib/db.ts`. Appendix D's wiring section says why.
+//
+// Every model carries `@@schema`, because this app shares a Supabase project with others and owns
+// a schema rather than a prefix. `multiSchema` is GA in Prisma 7, so Prisma writes fully-qualified
+// `"hacker_news_clone"."Post"` into every query — no `search_path` to set, and the app and the
+// migrations agree without either being configured separately.
 
 generator client {
   provider = "prisma-client"
@@ -15,11 +20,15 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Every object lives in this app's own schema, not `public` — see ARCHITECTURE Appendix D.
+  schemas  = ["hacker_news_clone"]
 }
 
 enum ItemType {
   POST
   COMMENT
+
+  @@schema("hacker_news_clone")
 }
 
 model User {
@@ -37,6 +46,8 @@ model User {
   comments Comment[]
   votes    Vote[]
   flags    Flag[]
+
+  @@schema("hacker_news_clone")
 }
 
 model Post {
@@ -60,6 +71,8 @@ model Post {
   @@index([createdAt(sort: Desc)]) // /newest
   @@index([domain, createdAt(sort: Desc)]) // /from + duplicate detection
   @@index([authorId]) // a profile's submissions
+
+  @@schema("hacker_news_clone")
 }
 
 model Comment {
@@ -85,6 +98,8 @@ model Comment {
   @@index([postId, path]) // the one query that loads a thread
   @@index([path]) // subtree fetch for permalinks
   @@index([authorId]) // a profile's comments
+
+  @@schema("hacker_news_clone")
 }
 
 model Vote {
@@ -97,6 +112,8 @@ model Vote {
   user User @relation(fields: [userId], references: [id])
 
   @@id([userId, itemType, itemId]) // makes voting idempotent
+
+  @@schema("hacker_news_clone")
 }
 
 model Flag {
@@ -108,6 +125,8 @@ model Flag {
   user User @relation(fields: [userId], references: [id])
 
   @@id([userId, itemType, itemId])
+
+  @@schema("hacker_news_clone")
 }
 
 model RankedPost {
@@ -118,6 +137,8 @@ model RankedPost {
   post Post @relation(fields: [postId], references: [id])
 
   @@index([score(sort: Desc)]) // the front page's only sort
+
+  @@schema("hacker_news_clone")
 }
 
 // Only if /front/:date survives — ARCHITECTURE Appendix G, Q4. Kept in the first migration because
@@ -128,4 +149,6 @@ model FrontSnapshot {
   rank   Int
 
   @@id([date, postId])
+
+  @@schema("hacker_news_clone")
 }

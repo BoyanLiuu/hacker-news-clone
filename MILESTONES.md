@@ -940,5 +940,36 @@ first was the worst thing in the change:
 **Verification.** 62 tests, lint, `tsc` and `pnpm build` green. `pnpm verify:rls` still reports 7
 managed tables, RLS on all, policy-free on all.
 
+### Follow-up: the app owns a Postgres schema
+
+A Supabase project is one database and the free tier gives two, so several side projects have to share
+one. Each app now owns a schema; this one is `hacker_news_clone`, and `public` is left alone.
+
+Chosen over table prefixes (`tally_user`, …) because **the database enforces a schema and only
+discipline enforces a prefix** — the failure mode for prefixes is adding a table next year, forgetting
+it, and not noticing. It is also what Supabase does one level up: its own 40 tables are in `auth`,
+`storage`, `realtime` and `vault`, and `public.User` and `auth.users` coexist here right now.
+
+`multiSchema` is GA in Prisma 7, so Prisma writes `"hacker_news_clone"."Post"` into every query and
+there is no `search_path` to configure. A `?schema=` parameter would not have worked: with the driver
+adapter the connection string goes to `pg`, which does not parse Prisma's parameters.
+
+**The move was `ALTER TABLE … SET SCHEMA`, hand-written, and that mattered.** A Prisma-generated diff
+sees seven tables missing from the new schema and seven unexpected ones in `public`, so it emits
+`CREATE` plus `DROP` — which would have destroyed 457 comments. I had in fact started down a
+regenerate-and-reseed path, on the reasoning that the seed is deterministic; the permission guard
+blocked the `DROP` and pushed me to the better method. `SET SCHEMA` relinks the existing table, so rows,
+indexes, constraints, owned sequences and the RLS flag travel with it and nothing is rewritten.
+
+Verified after applying: 38 users, 69 posts, 457 comments, demo thread still 334, RLS still on all seven
+tables with zero policies, and all three sequences followed their tables. `_prisma_migrations` stays in
+`public` — it is Prisma's bookkeeping, `migrate status` reads it correctly from there, and moving it
+risks Prisma losing its history and replaying init against tables that already exist.
+
+A test now asserts every model carries `@@schema` matching the declared schema, and that the declared
+schema is not `public`. `verify:rls` reads the schema name out of `prisma/schema.prisma` rather than
+repeating it, and fails when the schema is empty — otherwise a wrong name would pass every assertion
+vacuously. 63 tests.
+
 **Commit.** `feat: Add the Prisma schema, migration and Supabase wiring` · then
-`feat: Move every service read to Postgres`
+`feat: Move every service read to Postgres` · then `refactor: Give the app its own Postgres schema`
