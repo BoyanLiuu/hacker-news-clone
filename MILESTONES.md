@@ -18,6 +18,7 @@ Phase 2 begins at M7, which moves the data layer to Postgres without changing a 
 | M6 — Motion pass | **Done — 4 of 6 CSS items; 2 moved to M15 with their targets** |
 | M7 — Supabase and Prisma | **Done — every service reads Postgres** |
 | M8 — Seed with real data | **Done — 1 380 stories, 134 459 comments** |
+| M9 — The ranking job, measured | **Done — materialised, measured, `/front/:date` dropped** |
 
 ---
 
@@ -1086,3 +1087,114 @@ Widening the window or lowering the points filter would close it; neither seemed
 import for a number that was approximate in the plan.
 
 **Commit.** `feat: Import real Hacker News stories and comment trees`
+
+---
+
+## M9 — The ranking job, measured · Done
+
+**Objective.** Decide the ranking's shape with numbers rather than theory, and give the staleness
+indicator something real to read.
+
+**Guidance.**
+- `prisma/migrations/*_ranking_job` — `pg_cron`, the refresh function, the schedule.
+- `prisma/migrations/*_simplify_refresh` — replaces a data-modifying CTE with two statements.
+- `prisma/migrations/*_drop_front_snapshot` — resolves Appendix G Q4.
+- `src/services/posts.ts` — `getRankedPage` over `RankedPost`, `getRankingFreshness`, the
+  signed-out cache.
+- `src/services/map.ts` — `JOIN`, the one-line change that mattered most.
+
+**Test requirements.** None added. What M9 changes is a query plan, a cron schedule and a cache
+boundary; the assertions worth making are measurements, recorded in the README. 63 tests still pass.
+
+**Integrates with.** `DocumentLine` reads `getRankingFreshness`. Nothing else above the services
+changed.
+
+**Demo.** `pg_cron` verified live: 24+ runs, all succeeded, 975 rows refreshed every minute, and the
+document line shows a real timestamp instead of `now()`.
+
+### What the measurement actually said
+
+| | DB execution | round trip |
+|---|---|---|
+| inline, score and sort in SQL | 23.25 ms | 135.1 ms |
+| materialised, index scan | **0.255 ms** | **112.6 ms** |
+
+91x less database work, worth ~17% end to end, because a Supabase round trip is ~105 ms and latency
+dominates. So speed is the *third* reason materialising was kept. The first is honesty:
+`computedAt` is the only real source for `ux-24`, since inline scoring is always `now()` and so can
+never be stale — which is why M5 shipped it hardcoded to `false`. The second is scaling.
+
+The SQL score agrees with `lib/rank.ts` to three decimals. That matters because Figure 1 and
+`/rank-debug` draw from the TypeScript function; a disagreement would put a chart on screen
+contradicting the order beneath it.
+
+### The bottleneck was somewhere else entirely
+
+Materialising made the page **slower** at first, 320 ms against inline's 237 ms:
+
+| Prisma `relationLoadStrategy` | Statements | Time |
+|---|---|---|
+| `query` (the default) | 3 | 320 ms |
+| `join` | **1** | **114 ms** |
+
+Prisma issues one statement per relation level, sequentially. `RankedPost → Post → User` was three
+round trips to do 0.26 ms of work, and this had been silently costing a trip per relation since M7.
+Three trivial queries measured 105 ms in `Promise.all` and 316 ms sequentially, which is the whole
+story. After setting `join` across every author-joining read: `/newest` 340 → 250 ms, `/item`
+630 → 510 ms. The front page did not move — its cost is the figure reading 977 full rows, not the
+ranking, which M14 inherits.
+
+### `/front/:date` is gone, and that is item 5
+
+Appendix G Q4 asked whether the route was worth a table and a cron. Dropped — but not on cost.
+
+It reconstructed a past ordering from `pointsAt`, a back-projection of *today's* score whose own
+comment promised "phase 2 reads real vote timestamps". Phase 2 arrived with `Vote` empty and an HN
+import carrying no vote history, so the page presented an invented ordering under the claim "the
+front page as it stood". **M6 dropped the thread figure for exactly that flaw, and one flaw cannot
+have two verdicts.** A snapshot table would not have rescued it either: it records only forward, so
+every earlier date would be blank.
+
+Removed with it: `/past` (which only redirected into it), the "Past" nav entry, `ux-9`, `pointsAt`,
+the `at` parameter on `getRankedPage` and `getCandidates`, and the `FrontSnapshot` table — which had
+never held a row. Six managed tables now, RLS still on all of them.
+
+### The cache, and the bug it caused
+
+`getRankedPage` is cached for 60 s **for signed-out readers only**. The query depends on `showDead`,
+`isModerator` and `userId`, so a shared cache would serve one reader's visibility to another — a
+moderator's dead rows to an anonymous visitor being the worst case — while keying on them would mean
+an entry per signed-in user.
+
+The first attempt blanked the front page. `unstable_cache` serialises through JSON, so `Date` fields
+came back as **strings**, `formatAge` called `.getTime()` on a string, and the row threw — and
+because the list renders inside a Suspense boundary, **the boundary swallowed the error and the page
+showed its skeleton forever**. Thirty rows became zero with a 200 status and nothing in the output
+to say why. Fixed with an explicit revive across the cache boundary; a cache that silently blanks a
+page is worse than no cache.
+
+### Two things I had stated wrongly earlier
+
+- **`pg_cron` was available, not installed.** The `pg_cron scheduler` process visible in
+  `pg_stat_activity` is Supabase's platform scheduler, not the extension in this database. Now
+  installed by migration.
+- **The 570 → 90 ms front-page improvement was a cold cache**, not the materialisation working.
+  Warm, on identical data, the page is unchanged.
+
+### Review findings
+
+1. **The refresh function used a data-modifying CTE** so readers would never see an empty table. A
+   plpgsql body is already one transaction, so the CTE bought nothing — and Postgres documents that
+   `WITH` sub-statements cannot see one another's effects, making an INSERT of a key the DELETE is
+   removing a uniqueness violation by the letter of the manual. It survived 24 runs, which is luck.
+   Now two plain statements.
+2. **`_prisma_migrations` was left in `public`**, on the reasoning that it is Prisma's bookkeeping
+   rather than this app's data. In a shared project that reasoning fails: the ledger is per-app, and
+   the next app omitting `?schema=` adopts these migrations as applied-but-missing-from-disk. A
+   sibling app in the same project had already hit this and written it down. Moved with
+   `ALTER TABLE … SET SCHEMA`, with `?schema=hacker_news_clone` added to `DIRECT_URL` **only** —
+   that parameter tells the CLI where the ledger is; the runtime client already qualifies every
+   table. `public` now holds nothing.
+
+**Commit.** `feat: Add time-decay ranking with measured query plans` · then
+`feat: Finish M9 — cache the front page and drop /front/:date`

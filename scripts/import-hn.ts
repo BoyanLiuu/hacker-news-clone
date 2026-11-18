@@ -329,7 +329,7 @@ async function main() {
     // TRUNCATE drops the storage instead of walking rows, and one statement listing every table
     // satisfies the foreign keys between them without needing CASCADE or an order.
     await client.query(
-      `TRUNCATE ${["Vote", "Flag", "RankedPost", "FrontSnapshot", "Comment", "Post", "User"]
+      `TRUNCATE ${["Vote", "Flag", "RankedPost", "Comment", "Post", "User"]
         .map((t) => `"${SCHEMA}"."${t}"`)
         .join(", ")}`,
     );

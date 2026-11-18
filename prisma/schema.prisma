@@ -142,14 +142,3 @@ model RankedPost {
   @@schema("hacker_news_clone")
 }
 
-// Only if /front/:date survives — ARCHITECTURE Appendix G, Q4. Kept in the first migration because
-// adding a table later is cheap and M8's seed wants somewhere to put a back-dated front page.
-model FrontSnapshot {
-  date   DateTime
-  postId Int
-  rank   Int
-
-  @@id([date, postId])
-
-  @@schema("hacker_news_clone")
-}

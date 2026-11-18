@@ -42,7 +42,6 @@ async function main() {
   console.log("clearing…");
   // Children first: the FKs are real, so order matters.
   await db.rankedPost.deleteMany();
-  await db.frontSnapshot.deleteMany();
   await db.vote.deleteMany();
   await db.flag.deleteMany();
   await db.comment.deleteMany();

@@ -1,8 +1,9 @@
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { CFG, DAY, HOUR } from "@/lib/config";
 import { db } from "@/lib/db";
-import { ageHoursBetween, isCandidate, pointsAt, rank } from "@/lib/rank";
-import { NotImplementedInStaticPhase, type Page, type Post, type ScoredPost, type ViewerOpts } from "@/lib/types";
+import { ageHoursBetween, isCandidate, rank } from "@/lib/rank";
+import { ANONYMOUS, NotImplementedInStaticPhase, type Page, type Post, type ScoredPost, type ViewerOpts } from "@/lib/types";
 import { AUTHOR, JOIN, toPost } from "./map";
 import { reachableAtPermalinkWhere, visiblePostWhere } from "./visibility";
 import type { Prisma } from "@/generated/prisma/client";
@@ -80,17 +81,18 @@ async function newestPage(
  * the application tractable: the `[createdAt]` index gives Postgres the window, and only those rows
  * are scored.
  *
- * `at` back-projects points for `/front/:date`. This is also what Figure 1 plots.
+ * This is what Figure 1 plots. There is no longer an `at` parameter: `/front/:date` is gone
+ * (Appendix G, Q4), and it was the only caller that asked for a past moment.
  */
 export const getCandidates = cache(
-  async (opts: ViewerOpts, at: Date = new Date(), gravity: number = CFG.gravity): Promise<ScoredPost[]> => {
-    const now = new Date();
+  async (opts: ViewerOpts, gravity: number = CFG.gravity): Promise<ScoredPost[]> => {
+    const at = new Date();
     const windowStart = new Date(at.getTime() - CFG.windowDays * DAY);
 
     const rows = await db.post.findMany({
       ...JOIN,
       where: {
-        AND: [visiblePostWhere(opts), { createdAt: { lte: at, gte: windowStart } }],
+        AND: [visiblePostWhere(opts), { createdAt: { gte: windowStart } }],
       },
       orderBy: { createdAt: "desc" },
       select: SELECT,
@@ -103,7 +105,7 @@ export const getCandidates = cache(
       // lives, or changing the rule means remembering to change a `where`.
       .filter((post) => isCandidate(post.createdAt, at))
       .map((post) => {
-        const points = pointsAt(post.scoreRaw, post.createdAt, at, now);
+        const points = post.scoreRaw;
         const ageHours = ageHoursBetween(post.createdAt, at);
         return { post, points, ageHours, score: rank(points, ageHours, gravity) };
       })
@@ -157,22 +159,61 @@ export const getRankingFreshness = cache(async (): Promise<RankingFreshness> => 
  * the primary one, and the scaling is the third — the inline sort grows with the window while an
  * index scan does not.
  *
- * `at` still routes to the inline path: `RankedPost` holds one moment, and `/front/:date` asks what
- * the ordering *was*.
+ * There is no `at` parameter any more. `/front/:date` was the only caller that wanted a past
+ * ordering, and it is gone — Appendix G, Q4.
  */
-export async function getRankedPage(page: number, opts: ViewerOpts, at?: Date): Promise<Page<ScoredPost>> {
-  if (at) {
-    const all = await getCandidates(opts, at);
-    const start = (page - 1) * CFG.pageSize;
-    return {
-      items: all.slice(start, start + CFG.pageSize),
-      page,
-      pageSize: CFG.pageSize,
-      total: all.length,
-      hasNext: start + CFG.pageSize < all.length,
-    };
+/**
+ * The front page, cached across requests for 60 s — matching `CFG.recomputeSeconds`, because the
+ * underlying ordering cannot change faster than the job that writes it.
+ *
+ * **Only the signed-out view is cached, and that restriction is the point.** The query depends on
+ * three per-viewer inputs: `showDead`, `isModerator`, and `userId` (a shadow-banned author sees
+ * their own posts). Caching it without those in the key would serve one reader's visibility to
+ * another — a moderator's dead rows to an anonymous visitor is the worst version of that. Including
+ * them in the key would instead mean a cache entry per signed-in user, which is a memory leak
+ * dressed as an optimisation.
+ *
+ * Signed-out is where the traffic is and where the data is identical for everyone, so it takes the
+ * cache; signed-in readers pay the query. `React.cache()` still dedupes within a single request for
+ * both.
+ *
+ * **`unstable_cache` serialises through JSON, so `Date` fields come back as strings.** Without the
+ * revive below, `formatAge` calls `.getTime()` on a string and the row throws — and because the list
+ * renders inside a Suspense boundary, the boundary swallows it and the page shows its skeleton
+ * forever rather than an error. A cache that silently turns a page blank is worse than no cache, so
+ * the revive is not optional tidying.
+ */
+const cachedSignedOutPage = unstable_cache(
+  async (page: number) => rankedPageFromTable(page, ANONYMOUS),
+  ["ranked-page"],
+  { revalidate: CFG.recomputeSeconds },
+);
+
+/** Restore the `Date`s JSON flattened to strings. Both fields, or `editedAt` breaks the edit window. */
+function reviveDates(page: Page<ScoredPost>): Page<ScoredPost> {
+  return {
+    ...page,
+    items: page.items.map((item) => ({
+      ...item,
+      post: {
+        ...item.post,
+        createdAt: new Date(item.post.createdAt),
+        editedAt: item.post.editedAt === null ? null : new Date(item.post.editedAt),
+      },
+    })),
+  };
+}
+
+export async function getRankedPage(page: number, opts: ViewerOpts): Promise<Page<ScoredPost>> {
+  // Signed out and asking for the live ordering: the one case worth caching.
+  if (opts.userId === null && !opts.isModerator && !opts.showDead) {
+    return reviveDates(await cachedSignedOutPage(page));
   }
 
+  return rankedPageFromTable(page, opts);
+}
+
+async function rankedPageFromTable(page: number, opts: ViewerOpts): Promise<Page<ScoredPost>> {
   // Visibility is re-applied here rather than trusted from the job. The job filters the same three
   // rules, but it ran up to a minute ago and `showDead` is per-viewer, which no shared table can
   // encode.

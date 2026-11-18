@@ -24,17 +24,3 @@ export function isCandidate(createdAt: Date, at: Date = new Date()): boolean {
   const age = ageHoursBetween(createdAt, at);
   return age >= 0 && age < CFG.windowDays * 24;
 }
-
-/**
- * Points a post had at an earlier time, so `/front/:date` can show the order as it stood.
- * Votes accrue fast then taper, so this uses a saturating curve rather than a straight line.
- * Synthetic back-projection for the static phase; phase 2 reads real vote timestamps.
- */
-export function pointsAt(points: number, createdAt: Date, at: Date, now: Date = new Date()): number {
-  if (at >= now) return points;
-  const age = ageHoursBetween(createdAt, at);
-  const fullAge = ageHoursBetween(createdAt, now);
-  if (age <= 0) return 1;
-  const saturate = (h: number) => 1 - Math.exp(-h / 6);
-  return Math.max(1, Math.round(1 + (points - 1) * (saturate(age) / saturate(fullAge))));
-}

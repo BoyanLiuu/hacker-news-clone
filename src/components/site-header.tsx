@@ -11,13 +11,12 @@ import { getViewer } from "@/services/viewer";
 const COUNT = new Intl.NumberFormat("en-US");
 
 /**
- * Static hrefs only. "Past" points at /past, which redirects to today's dated page — reading the
+ * Static hrefs only. "Past" and /front/:date were removed in M9 — ARCHITECTURE Appendix G, Q4. Reading the
  * clock here would make the header depend on the request for the sake of one link.
  */
 const NAV = [
   { href: "/", label: "Front" },
   { href: "/newest", label: "Newest" },
-  { href: "/past", label: "Past" },
   { href: "/submit", label: "Submit" },
 ];
 

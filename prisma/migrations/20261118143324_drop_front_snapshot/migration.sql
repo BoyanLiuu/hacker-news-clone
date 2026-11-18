@@ -1,0 +1,22 @@
+-- Drop `FrontSnapshot`, with the route it existed for.
+--
+-- ARCHITECTURE Appendix G question 4 asked whether `/front/:date` was worth a table and a daily
+-- cron, and M9 is where it had to be answered. Dropped, for a reason that is about honesty rather
+-- than cost:
+--
+-- The route reconstructed a past ordering with `pointsAt`, a saturating back-projection of *today's*
+-- score. Its own comment said "synthetic back-projection for the static phase; phase 2 reads real
+-- vote timestamps" — and phase 2 arrived with `Vote` empty and an HN import carrying no vote
+-- history at all. So the page presented an invented ordering under the claim "the front page as it
+-- stood". That is exactly why M6 dropped the thread figure, and the same flaw cannot have two
+-- verdicts.
+--
+-- A snapshot table would not have rescued it either: it can only record from the day the job starts,
+-- so every date before that would be empty. The honest version of this feature is mostly blank.
+--
+-- Removed with it: the route, `/past` (which only redirected into it), the "Past" nav entry, the
+-- `at` parameter on `getRankedPage` and `getCandidates`, and `pointsAt`.
+--
+-- The table has never held a row. If `/front/:date` ever returns, it returns with real vote
+-- timestamps behind it and earns a new table then.
+DROP TABLE IF EXISTS "hacker_news_clone"."FrontSnapshot";
