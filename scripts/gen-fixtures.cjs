@@ -1,5 +1,21 @@
+// Regenerates src/fixtures/* from the design mock's inline data.
+//
+// Takes the mock's path as an argument: `pnpm gen:fixtures <path-to-mock.html>`. It used to be
+// hardcoded in package.json, pointing at a file kept outside this repository — which meant the
+// script could never run from a clone and the committed path described a directory nobody else has.
+// The fixtures it produces are committed, so this is only needed when the mock's data changes.
+//
+// It overwrites, it does not merge. The mock predates the Tally → ByteBoard rename, so running this
+// puts `moderators@tally.example` back into `src/fixtures/users.ts` — found by running it. Diff the
+// output before keeping it, or rename in the mock first.
 const fs = require('fs');
-const src = fs.readFileSync(process.argv[2], 'utf8');
+
+const mock = process.argv[2];
+if (!mock) {
+  console.error('usage: node scripts/gen-fixtures.cjs <path-to-design-mock.html>');
+  process.exit(1);
+}
+const src = fs.readFileSync(mock, 'utf8');
 
 function grab(name) {
   const i = src.indexOf(`const ${name} = `);

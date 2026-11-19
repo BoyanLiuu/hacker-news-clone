@@ -1,12 +1,18 @@
-# Milestones — Tally (hacker-news-clone)
+# Milestones — ByteBoard (hacker-news-clone)
 
-Plan: `../docs/project-idea/28-hacker-news-clone/IMPLEMENTATION_PLAN.md`
-Design: `../docs/project-idea/28-hacker-news-clone/impeccable/DESIGN.md` + 36 `ux-*.png` screens
-Architecture: `../docs/project-idea/28-hacker-news-clone/ARCHITECTURE.md`
+The build log: what each milestone measured, and what it got wrong first. The plan, the design
+system and the architecture doc it was built against are kept outside this repository and are not
+published, so they are described here rather than linked.
 
 Phase 1 (M0–M6) is static: every screen on fixture data, no database, no API, no sign-in.
 Phase 2 begins at M7, which moves the data layer to Postgres without changing a service signature.
 Phase 3 begins at M10, which replaces the fixture viewer with a real session.
+
+**This file is written up in detail through M10 and then stops.** M11–M15 shipped and are recorded
+only in the table below and in the commit history. The entries that remain are also a snapshot of
+what was true when each milestone closed, not of the code today: M4's Figure 1 and M9's
+`/rank-debug` were later removed on request, and the ranking formula now lives only in
+`refresh_ranked_posts()`.
 
 | Milestone | Status |
 |---|---|
@@ -14,13 +20,18 @@ Phase 3 begins at M10, which replaces the fixture viewer with a real session.
 | **M1 — Fixtures and the service boundary** | **Done** |
 | **M2 — Listings** | **Done** |
 | **M3 — Thread and comment tree** | **Done** |
-| **M4 — Figure 1** | **Done** |
+| **M4 — Figure 1** | **Done — later removed on request** |
 | M5 — Forms, profiles, moderation views, error states | **Done — 16 of 17; `ux-24` blocked on M9** |
 | M6 — Motion pass | **Done — 4 of 6 CSS items; 2 moved to M15 with their targets** |
 | M7 — Supabase and Prisma | **Done — every service reads Postgres** |
 | M8 — Seed with real data | **Done — 1 380 stories, 134 459 comments** |
 | M9 — The ranking job, measured | **Done — materialised, measured, `/front/:date` dropped** |
-| M10 — Clerk | **Partial — wired and gated; signed-in path unverified** |
+| M10 — Clerk | **Done — provider scoped to `app/(auth)`, sign-out verified** |
+| M11 — Voting and karma | **Done — not written up below** |
+| M12 — Submissions | **Done — not written up below** |
+| M13 — Moderation | **Done — not written up below** |
+| M14 — Scale | **Done — not written up below** |
+| M15 — Accessibility and keyboard | **Done — not written up below; Vercel deploy excluded, since done** |
 
 ---
 

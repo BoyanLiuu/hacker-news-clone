@@ -10,7 +10,7 @@
     "db:seed:hn": "tsx --env-file=.env scripts/import-hn.ts",
     "db:studio": "prisma studio",
     "dev": "next dev",
-    "gen:fixtures": "node scripts/gen-fixtures.cjs ../docs/project-idea/28-hacker-news-clone/impeccable/index.html",
+    "gen:fixtures": "node scripts/gen-fixtures.cjs",
     "lint": "eslint",
     "postinstall": "prisma generate",
     "start": "next start",

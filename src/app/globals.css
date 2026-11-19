@@ -21,7 +21,8 @@
 @layer clerk;
 @import "tailwindcss/utilities.css" layer(utilities);
 
-/* Design System: ByteBoard — tokens from docs/project-idea/28-hacker-news-clone/impeccable/DESIGN.md.
+/* Design System: ByteBoard. The source DESIGN.md is kept outside this repository; these tokens are
+   the published copy, so treat them as the authority rather than a mirror of something else.
    Colour is spent once: petrol marks the title block, your own state, the figure highlight and focus.
    Amber means stale/limited/rolled back. Red means error/dead. Every other grey is meta text or a
    dimmed state, never decoration. */
