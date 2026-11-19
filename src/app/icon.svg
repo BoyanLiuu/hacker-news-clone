@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    The ByteBoard mark, drawn for a 16 px browser tab. Same two elements as the header's wordmark in
+    `components/site-header.tsx`, a square and a diagonal arrow leaving it, but filled rather than
+    outlined: at 16 px the header's three 1.5 px strokes inside an outlined box collapse into a grey
+    smudge, so here the square is the solid shape and the arrow is knocked out of it.
+
+    Colours are literal hex rather than the CSS custom properties the components use. A favicon is
+    fetched outside the document, so it has no stylesheet and nothing to resolve them against; these
+    two values are the petrol and paper tokens from `globals.css` and have to be changed by hand if
+    those move.
+
+    The dark variant is not decoration, and the numbers are measured rather than judged by eye: the
+    first look at a composite said petrol was fine on a dark strip, and the contrast said otherwise.
+    Plate against strip, which is what decides whether the mark has a silhouette at all:
+
+      strip                   petrol plate   paper plate
+      Chrome dark  #202124            2.34         15.67
+      Chrome light #dee1e6            5.26          1.28
+      reported     #2d4d7a            1.24          8.33
+
+    At 1.24 the plate is gone and all that is left is a floating white arrow, which still reads but
+    is no longer the mark. So each scheme takes the plate that survives it. Chrome honours
+    `prefers-color-scheme` inside an SVG favicon; the rasterised `favicon.ico` beside this file
+    cannot, and carries the light pairing only.
+
+    Keep this comment free of double hyphens. XML forbids them inside a comment, and Chrome rejects
+    the whole file rather than ignoring the comment, so the first draft of this served a parser
+    error where the icon should have been.
+  -->
+  <style>
+    .plate { fill: #00646e }
+    .arrow { stroke: #fcfcfa }
+    @media (prefers-color-scheme: dark) {
+      .plate { fill: #fcfcfa }
+      .arrow { stroke: #00646e }
+    }
+  </style>
+
+  <rect class="plate" width="32" height="32" rx="6" />
+  <g class="arrow" stroke-width="3" stroke-linecap="square" fill="none">
+    <path d="M10 22 L22 10" />
+    <path d="M15.5 10 H22 V16.5" />
+  </g>
+</svg>
