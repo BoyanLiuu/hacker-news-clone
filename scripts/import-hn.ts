@@ -15,6 +15,7 @@ import { Readable } from "node:stream";
 import pg from "pg";
 import { from as copyFrom } from "pg-copy-streams";
 import { registrableDomain } from "@/lib/domain";
+import { fromHnHtml } from "@/lib/from-hn-html";
 import { childPath, depthOf } from "@/lib/path";
 
 const SCHEMA = "hacker_news_clone";
@@ -195,7 +196,9 @@ function walkTree(story: Item, rows: Rows, userId: (author: string, at: number) 
       esc(story.id),
       esc(parentPath === null ? null : node.parent_id),
       esc(userId(node.author ?? "ghost", node.created_at_i)),
-      esc(node.text ?? ""),
+      // Algolia returns HTML; the renderer never interprets markup, so it has to be converted
+      // on the way in or every formatted comment displays its own tags. See `fromHnHtml`.
+      esc(node.text === null ? "" : fromHnHtml(node.text)),
       esc(path),
       esc(depthOf(path)),
       esc(Math.max(1, node.points ?? 1)),
@@ -252,7 +255,7 @@ async function main() {
         esc(authorId),
         esc(story.title),
         esc(story.url),
-        esc(story.text),
+        esc(story.text === null ? null : fromHnHtml(story.text)),
         esc(registrableDomain(story.url)),
         esc(Math.max(1, story.points ?? 1)),
         esc(kept),
