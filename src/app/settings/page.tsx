@@ -1,9 +1,6 @@
-import { Suspense } from "react";
 import { DatasheetTable } from "@/components/datasheet-table";
-import { Field, PrimaryButton, textInputClass } from "@/components/field";
-import { Notice } from "@/components/notice";
+import { SettingsForm } from "@/components/settings-form";
 import { PageHead, PageShell } from "@/components/page-shell";
-import { CFG } from "@/lib/config";
 import { formatIsoDate } from "@/lib/format";
 import { requireViewer } from "@/services/require";
 import { getViewer } from "@/services/viewer";
@@ -19,58 +16,12 @@ export default async function SettingsPage() {
   return (
     <PageShell nav="" section="settings" aside={<Account />}>
       <PageHead title="Settings" sub="Your profile and what you see." />
-      <Suspense fallback={<p className="mt-4 type-meta text-meta">Loading…</p>}>
-        <Form />
-      </Suspense>
+      {/* No boundary around a form — see `submit/page.tsx`. */}
+      <Form />
     </PageShell>
   );
 }
 
-async function Form() {
-  const viewer = await requireViewer();
-
-  return (
-    <form className="max-w-[640px]">
-      {viewer.isNewAccount ? (
-        <Notice tone="amber">
-          New accounts cannot flag or downvote. Yours is {viewer.accountAgeDays} day{viewer.accountAgeDays === 1 ? "" : "s"} old;
-          both unlock at {CFG.flagMinDays} days and {CFG.flagMinKarma} karma.
-        </Notice>
-      ) : null}
-
-      <Field name="about" label="About" hint="Shown on your profile. Same formatting as comments.">
-        <textarea
-          id="about"
-          name="about"
-          rows={4}
-          defaultValue={viewer.user.about}
-          className={textInputClass(false)}
-        />
-      </Field>
-
-      <div className="mt-6">
-        <label className="flex items-start gap-3 text-[15px]">
-          <input
-            type="checkbox"
-            name="showDead"
-            defaultChecked={viewer.user.showDead}
-            className="mt-[3px] size-4 accent-petrol"
-          />
-          <span>
-            Show dead posts
-            <span className="mt-1 block type-meta text-meta">
-              Flagged items stay out of listings by default. They are always readable at their own link.
-            </span>
-          </span>
-        </label>
-      </div>
-
-      <div className="mt-7">
-        <PrimaryButton type="submit">Save</PrimaryButton>
-      </div>
-    </form>
-  );
-}
 
 async function Account() {
   const viewer = await getViewer();
@@ -91,5 +42,19 @@ async function Account() {
         />
       ) : null}
     </>
+  );
+}
+
+async function Form() {
+  // Already gated by the page; `requireViewer` is how the type knows the viewer exists.
+  const viewer = await requireViewer();
+
+  return (
+    <SettingsForm
+      about={viewer.user.about}
+      showDead={viewer.user.showDead}
+      isNewAccount={viewer.isNewAccount}
+      accountAgeDays={viewer.accountAgeDays}
+    />
   );
 }

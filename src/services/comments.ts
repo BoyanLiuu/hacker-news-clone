@@ -2,7 +2,7 @@ import { cache } from "react";
 import { db } from "@/lib/db";
 import { ancestorIds } from "@/lib/path";
 import { buildTree } from "@/lib/tree";
-import { NotImplementedInStaticPhase, type Comment, type CommentNode, type ViewerOpts } from "@/lib/types";
+import type { Comment, CommentNode, ViewerOpts } from "@/lib/types";
 import { AUTHOR, JOIN, toComment } from "./map";
 import { visibleCommentWhere } from "./visibility";
 
@@ -106,13 +106,3 @@ export async function getCommentsByAuthor(username: string, opts: ViewerOpts): P
   return rows.map(toComment);
 }
 
-export async function createComment(_input: {
-  postId: number;
-  parentId: number | null;
-  text: string;
-}): Promise<Comment> {
-  // M12 owns this, and it is a transaction rather than an insert: `path` contains the row's own id,
-  // which does not exist until the insert returns. Create, then set the path from the new id and
-  // the parent's — see `childPath`. The seed exercises exactly that arithmetic over 457 rows.
-  throw new NotImplementedInStaticPhase("createComment");
-}

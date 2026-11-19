@@ -3,7 +3,7 @@ import { cache } from "react";
 import { CFG, DAY, HOUR } from "@/lib/config";
 import { db } from "@/lib/db";
 import { ageHoursBetween, isCandidate, rank } from "@/lib/rank";
-import { ANONYMOUS, NotImplementedInStaticPhase, type Page, type Post, type ScoredPost, type ViewerOpts } from "@/lib/types";
+import { ANONYMOUS, type Page, type Post, type ScoredPost, type ViewerOpts } from "@/lib/types";
 import { AUTHOR, JOIN, toPost } from "./map";
 import { reachableAtPermalinkWhere, visiblePostWhere } from "./visibility";
 import type { Prisma } from "@/generated/prisma/client";
@@ -311,17 +311,3 @@ export const getSubmitQuota = cache(async (opts: ViewerOpts): Promise<SubmitQuot
   };
 });
 
-/* Mutations are declared so callers can be written against them now. Forms render and validate;
-   they cannot persist until M12 brings the actions and M10 brings the session they act as. */
-
-export async function submitPost(_input: { title: string; url?: string; text?: string }): Promise<Post> {
-  throw new NotImplementedInStaticPhase("submitPost");
-}
-
-export async function editPost(_id: number, _input: { title: string; text?: string }): Promise<Post> {
-  throw new NotImplementedInStaticPhase("editPost");
-}
-
-export async function deletePost(_id: number): Promise<void> {
-  throw new NotImplementedInStaticPhase("deletePost");
-}

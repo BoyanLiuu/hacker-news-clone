@@ -6,6 +6,7 @@ import type { CommentNode as Node } from "@/lib/types";
 import { CollapseToggle } from "./collapse-toggle";
 import { CommentBody } from "./comment-body";
 import { CommentVotes } from "./comment-votes";
+import { FlagButton } from "./flag-button";
 import { dimFor } from "@/lib/dim";
 
 type Ctx = {
@@ -25,6 +26,8 @@ type Ctx = {
   baseDepth: number;
   /** This viewer's standing votes on the comments in this thread, by comment id. */
   voted: ReadonlyMap<number, 1 | -1>;
+  /** The comment ids this viewer has already flagged. */
+  flagged: ReadonlySet<number>;
 };
 
 /**
@@ -115,7 +118,14 @@ function CommentArticle({ node, ctx }: { node: Node; ctx: Ctx }) {
               <Link href={`/reply?id=${node.id}`} className="hover:underline">
                 reply
               </Link>
-              {own || deleted || !ctx.canFlag ? null : <span>flag</span>}
+              {own || deleted || !ctx.canFlag ? null : (
+                <FlagButton
+                  type="comment"
+                  id={node.id}
+                  label={`comment by ${node.author}`}
+                  flagged={ctx.flagged.has(node.id)}
+                />
+              )}
             </div>
           </div>
         </div>

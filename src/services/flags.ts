@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
-import { NotImplementedInStaticPhase, type ItemType, type Post, type ViewerOpts } from "@/lib/types";
+import type { ItemType, Post, ViewerOpts } from "@/lib/types";
 import { AUTHOR, JOIN, toPost } from "./map";
+import { getViewer } from "./viewer";
 
 /** Flagging and the moderator actions that act on flagged items. */
 
@@ -62,14 +63,31 @@ export async function getFlagged(opts: ViewerOpts): Promise<FlaggedPost[]> {
   return rows.map((row) => ({ ...toPost(row), flags: flagCounts.get(row.id) ?? 0 }));
 }
 
-export async function flag(_item: { type: ItemType; id: number }): Promise<void> {
-  throw new NotImplementedInStaticPhase("flag");
-}
 
-export async function killItem(_item: { type: ItemType; id: number }): Promise<void> {
-  throw new NotImplementedInStaticPhase("killItem");
-}
+/**
+ * Which of these items this viewer has already flagged.
+ *
+ * The same shape as `getVotes`, and for the same reason: after flagging, `revalidatePath` re-renders
+ * the page, which remounts the client control and resets its `useActionState` — so the word read
+ * "flag" again as though nothing had happened. Action state cannot carry a fact that outlives the
+ * request that produced it. The server knows, so the server says.
+ *
+ * One query per page rather than per row: the primary key leads with `userId`.
+ */
+export async function getViewerFlags(type: ItemType, ids: readonly number[]): Promise<Set<number>> {
+  if (ids.length === 0) return new Set();
 
-export async function restoreItem(_item: { type: ItemType; id: number }): Promise<void> {
-  throw new NotImplementedInStaticPhase("restoreItem");
+  const viewer = await getViewer();
+  if (!viewer) return new Set();
+
+  const rows = await db.flag.findMany({
+    where: {
+      userId: viewer.userId,
+      itemType: type === "post" ? "POST" : "COMMENT",
+      itemId: { in: [...ids] },
+    },
+    select: { itemId: true },
+  });
+
+  return new Set(rows.map((r) => r.itemId));
 }

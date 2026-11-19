@@ -32,6 +32,7 @@ export function StoryList({
   viewerName,
   canFlag,
   voted,
+  flagged,
 }: {
   rows: StoryRowData[];
   viewerName: string | null;
@@ -41,6 +42,8 @@ export function StoryList({
    * on the listing read, so the cached ranking stays the same bytes for everyone — ARCHITECTURE §5.
    */
   voted?: ReadonlySet<number>;
+  /** The post ids this viewer has already flagged. One query for the page, like `voted`. */
+  flagged?: ReadonlySet<number>;
 }) {
   return (
     <div className="mt-4 rule-open">
@@ -55,6 +58,7 @@ export function StoryList({
             canFlag={canFlag}
             voted={voted?.has(row.post.id)}
             canEdit={editWindow(row.post.createdAt).open}
+            flagged={flagged?.has(row.post.id)}
           />
         ))}
       </ol>

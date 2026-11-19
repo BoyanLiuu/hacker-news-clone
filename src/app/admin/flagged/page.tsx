@@ -1,9 +1,9 @@
-import { Suspense } from "react";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { Notice } from "@/components/notice";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { CFG } from "@/lib/config";
 import { formatAge } from "@/lib/format";
+import { setDead } from "@/services/flag-actions";
 import { getFlagged } from "@/services/flags";
 import { requireModerator, requireViewer } from "@/services/require";
 import Link from "next/link";
@@ -16,9 +16,9 @@ export default async function FlaggedPage() {
   return (
     <PageShell nav="" section="moderation" aside={<Thresholds />}>
       <PageHead title="Flagged and dead" sub="Items awaiting review." />
-      <Suspense fallback={<p className="mt-4 type-meta text-meta">Loading the queue…</p>}>
-        <Queue />
-      </Suspense>
+      {/* No boundary: every row carries a Kill or Restore form, and React streams suspended
+          content into a `<div hidden>` that only JavaScript opens. See `submit/page.tsx`. */}
+      <Queue />
     </PageShell>
   );
 }
@@ -67,13 +67,20 @@ async function Queue() {
               {post.isDead ? <span className="text-red">dead</span> : <span className="text-amber">flagged</span>}
             </td>
             <td className="px-2 py-[7px] text-right">
-              {/* Text actions, never boxed buttons inside a table — DESIGN.md §Text Buttons. */}
-              <button
-                type="button"
-                className="text-[13px] font-semibold text-ink underline decoration-text-button-underline underline-offset-[3px] hover:decoration-ink"
-              >
-                {post.isDead ? "Restore" : "Kill"}
-              </button>
+              {/* Text actions, never boxed buttons inside a table — DESIGN.md §Text Buttons.
+                  A form per row rather than one handler: `setDead` is a direct Server Action, so
+                  the queue works without JavaScript like every other control here. */}
+              <form action={setDead}>
+                <input type="hidden" name="type" value="post" />
+                <input type="hidden" name="id" value={post.id} />
+                <input type="hidden" name="dead" value={post.isDead ? "0" : "1"} />
+                <button
+                  type="submit"
+                  className="text-[13px] font-semibold text-ink underline decoration-text-button-underline underline-offset-[3px] hover:decoration-ink"
+                >
+                  {post.isDead ? "Restore" : "Kill"}
+                </button>
+              </form>
             </td>
           </tr>
         ))}

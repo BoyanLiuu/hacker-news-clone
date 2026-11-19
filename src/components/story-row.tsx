@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { formatAge, formatCount, formatUtcTime } from "@/lib/format";
 import type { StoryRowData } from "@/lib/rows";
 import { castVote } from "@/services/vote-action";
+import { FlagButton } from "./flag-button";
 import { OwnItemMark, SignInArrow, VoteForm, voteState } from "./vote-button";
 
 /**
@@ -26,6 +27,7 @@ export function StoryRow({
   canFlag,
   voted,
   canEdit,
+  flagged,
 }: StoryRowData & {
   viewerName: string | null;
   /** New accounts cannot flag, so the control is not offered — the same rule the thread applies. */
@@ -34,6 +36,8 @@ export function StoryRow({
   voted?: boolean;
   /** Whether the edit window is still open, decided by the server rather than read off the clock. */
   canEdit?: boolean;
+  /** Whether this viewer has already flagged it — read on the server, see `FlagButton`. */
+  flagged?: boolean;
 }) {
   const [result, voteAction, pending] = useActionState(castVote, undefined);
 
@@ -140,10 +144,18 @@ export function StoryRow({
               edit
             </Link>
           ) : null}
-          {!own && canFlag ? <span>flag</span> : null}
+          {!own && canFlag ? (
+            <FlagButton type="post" id={post.id} label={post.title} flagged={flagged} />
+          ) : null}
           {/* Delete is offered only while nothing is attached to the post — once someone has
-              replied, removing it would take their comment with it. Debrief §1. */}
-          {own && post.commentCount === 0 ? <span>delete</span> : null}
+              replied, removing it would take their comment with it. Debrief §1. The link goes to
+              the thread's confirm step rather than deleting from here: a one-click delete in a
+              thirty-row list is a misclick waiting to happen, and the confirm is already built. */}
+          {own && post.commentCount === 0 ? (
+            <Link href={`/item?id=${post.id}&confirm=delete`} className="hover:underline">
+              delete
+            </Link>
+          ) : null}
 
           {/* Undoing posts the same arrow again, which the action reads as taking the vote back
               while the grace window is open. A second form, because it is a second submission. */}

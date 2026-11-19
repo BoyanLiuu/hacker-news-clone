@@ -4,6 +4,7 @@ import { formatAgeLong, formatCount, formatMinutesLeft } from "@/lib/format";
 import type { Post } from "@/lib/types";
 import { CommentBody } from "./comment-body";
 import { DeleteConfirm } from "./delete-confirm";
+import { FlagButton } from "./flag-button";
 import { PostVotes } from "./post-votes";
 
 /**
@@ -16,6 +17,7 @@ export function PostHeader({
   canFlag,
   confirmingDelete = false,
   voted = false,
+  flagged = false,
 }: {
   post: Post;
   viewerName: string | null;
@@ -24,6 +26,8 @@ export function PostHeader({
   confirmingDelete?: boolean;
   /** This viewer's standing upvote on this post. */
   voted?: boolean;
+  /** Whether this viewer has already flagged it — read on the server, see `FlagButton`. */
+  flagged?: boolean;
 }) {
   const own = viewerName !== null && post.author === viewerName;
   const editLeft = own ? formatMinutesLeft(new Date(post.createdAt.getTime() + CFG.editMinutes * MINUTE)) : null;
@@ -93,7 +97,9 @@ export function PostHeader({
                 delete
               </Link>
             ) : null}
-            {!own && canFlag ? <span>flag</span> : null}
+            {!own && canFlag ? (
+              <FlagButton type="post" id={post.id} label={post.title} flagged={flagged} />
+            ) : null}
 
             <span>
               {formatCount(post.commentCount)} {post.commentCount === 1 ? "comment" : "comments"}

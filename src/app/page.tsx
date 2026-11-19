@@ -8,6 +8,7 @@ import { toRows } from "@/lib/rows";
 import { CFG } from "@/lib/config";
 import { formatCount } from "@/lib/format";
 import { getCandidates, getRankedPage } from "@/services/posts";
+import { getViewerFlags } from "@/services/flags";
 import { getVotes } from "@/services/votes";
 import { getViewer, getViewerOpts } from "@/services/viewer";
 
@@ -48,7 +49,8 @@ async function RankedList({ searchParams }: { searchParams: Search }) {
   // The per-viewer overlay, read after the ranking rather than with it: the ranked page is cached
   // for everyone signed out, and a `voted` column in that read would make one cache entry per
   // person. One extra query for thirty ids — ARCHITECTURE §5.
-  const voted = await getVotes("post", rows.map((row) => row.post.id));
+  const ids = rows.map((row) => row.post.id);
+  const [voted, flagged] = await Promise.all([getVotes("post", ids), getViewerFlags("post", ids)]);
 
   return (
     <>
@@ -57,6 +59,7 @@ async function RankedList({ searchParams }: { searchParams: Search }) {
         viewerName={opts.userId}
         canFlag={viewer?.canFlag ?? false}
         voted={new Set(voted.keys())}
+        flagged={flagged}
       />
       <Pager page={ranked} basePath="/" />
     </>

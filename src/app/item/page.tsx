@@ -11,6 +11,7 @@ import type { Post } from "@/lib/types";
 import { getThread } from "@/services/comments";
 import { getPostById } from "@/services/posts";
 import { getViewer, getViewerOpts } from "@/services/viewer";
+import { getViewerFlags } from "@/services/flags";
 import { getVotes } from "@/services/votes";
 
 type Search = Promise<{ id?: string; dup?: string; confirm?: string }>;
@@ -55,9 +56,12 @@ async function Thread({ searchParams }: { searchParams: Search }) {
   // Both vote overlays together: two independent reads of this viewer's own rows, so there is no
   // reason to pay two round trips for them. Kept out of `getThread` so its result stays identical
   // for every viewer — ARCHITECTURE §5.
-  const [postVotes, commentVotes] = await Promise.all([
+  const commentIds = flatten(roots).map((node) => node.id);
+  const [postVotes, commentVotes, postFlags, commentFlags] = await Promise.all([
     getVotes("post", [post.id]),
-    getVotes("comment", flatten(roots).map((node) => node.id)),
+    getVotes("comment", commentIds),
+    getViewerFlags("post", [post.id]),
+    getViewerFlags("comment", commentIds),
   ]);
 
   return (
@@ -70,6 +74,7 @@ async function Thread({ searchParams }: { searchParams: Search }) {
         canFlag={viewer?.canFlag ?? false}
         confirmingDelete={params.confirm === "delete"}
         voted={postVotes.has(post.id)}
+        flagged={postFlags.has(post.id)}
       />
       <ReplyForm targetId={post.id} />
       <div className="mt-6">
@@ -81,6 +86,7 @@ async function Thread({ searchParams }: { searchParams: Search }) {
             canFlag: viewer?.canFlag ?? false,
             isModerator: opts.isModerator,
             voted: commentVotes,
+            flagged: commentFlags,
           }} />
       </div>
     </>

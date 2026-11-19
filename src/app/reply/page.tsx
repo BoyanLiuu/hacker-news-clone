@@ -9,6 +9,7 @@ import { countDescendants, flatten } from "@/lib/tree";
 import { getSubtree } from "@/services/comments";
 import { getPostById } from "@/services/posts";
 import { getViewer, getViewerOpts } from "@/services/viewer";
+import { getViewerFlags } from "@/services/flags";
 import { getVotes } from "@/services/votes";
 
 type Search = Promise<{ id?: string }>;
@@ -45,9 +46,11 @@ async function Permalink({ searchParams }: { searchParams: Search }) {
 
   const { ancestors, node } = found;
   // Independent of each other, so one round trip rather than two — the subtree is already loaded.
-  const [post, commentVotes] = await Promise.all([
+  const subtreeIds = flatten([node]).map((n) => n.id);
+  const [post, commentVotes, commentFlags] = await Promise.all([
     getPostById(node.postId, opts),
-    getVotes("comment", flatten([node]).map((n) => n.id)),
+    getVotes("comment", subtreeIds),
+    getViewerFlags("comment", subtreeIds),
   ]);
 
   return (
@@ -86,6 +89,7 @@ async function Permalink({ searchParams }: { searchParams: Search }) {
             canFlag: viewer?.canFlag ?? false,
             isModerator: opts.isModerator,
             voted: commentVotes,
+            flagged: commentFlags,
           }}
         />
       </div>

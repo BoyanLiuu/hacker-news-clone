@@ -99,10 +99,3 @@ export type Page<T> = {
   hasNext: boolean;
 };
 
-/** Thrown by every mutation during phase 1: forms render and validate, they just cannot persist. */
-export class NotImplementedInStaticPhase extends Error {
-  constructor(operation: string) {
-    super(`${operation} needs the database, which arrives in M7. Phase 1 is read-only.`);
-    this.name = "NotImplementedInStaticPhase";
-  }
-}

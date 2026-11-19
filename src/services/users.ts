@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { db } from "@/lib/db";
-import { NotImplementedInStaticPhase, type User } from "@/lib/types";
+import type { User } from "@/lib/types";
 import { toUser } from "./map";
 
 /**
@@ -25,8 +25,3 @@ export const getUserByName = cache(async (username: string): Promise<User | null
   return row ? toUser(row) : null;
 });
 
-export async function updateProfile(_input: { about: string; showDead: boolean }): Promise<User> {
-  // M10 brings the session this needs. Writing it now would mean deciding whose profile to update
-  // from an argument, which is exactly the mistake §6.4 warns about.
-  throw new NotImplementedInStaticPhase("updateProfile");
-}
