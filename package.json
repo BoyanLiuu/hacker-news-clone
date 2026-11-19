@@ -17,7 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:rls": "node scripts/verify-rls.mjs",
-    "db:seed:big": "tsx --env-file=.env scripts/seed-big-threads.ts"
+    "db:seed:big": "tsx --env-file=.env scripts/seed-big-threads.ts",
+    "db:anonymise": "tsx --env-file=.env scripts/anonymise-authors.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.10.2",
