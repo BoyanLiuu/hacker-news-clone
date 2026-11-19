@@ -63,12 +63,6 @@ export function ReplyForm({
         {pending ? "Posting…" : submit}
       </button>
 
-      {/* States what the formatter actually supports, including that HTML is not markup. */}
-      <p className="mt-3 max-w-[70ch] text-[12.5px] leading-[1.5] text-meta">
-        Blank line for a new paragraph · <code className="font-mono">*italics*</code> ·{" "}
-        <code className="font-mono">`code`</code> · indent two spaces for a block · links work · HTML shows
-        as text
-      </p>
     </form>
   );
 }

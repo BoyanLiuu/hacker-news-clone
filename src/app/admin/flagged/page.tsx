@@ -14,7 +14,7 @@ export default async function FlaggedPage() {
   await requireViewer();
 
   return (
-    <PageShell nav="" section="moderation" aside={<Thresholds />}>
+    <PageShell nav="" aside={<Thresholds />}>
       <PageHead title="Flagged and dead" sub="Items awaiting review." />
       {/* No boundary: every row carries a Kill or Restore form, and React streams suspended
           content into a `<div hidden>` that only JavaScript opens. See `submit/page.tsx`. */}

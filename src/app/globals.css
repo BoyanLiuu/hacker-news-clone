@@ -21,7 +21,7 @@
 @layer clerk;
 @import "tailwindcss/utilities.css" layer(utilities);
 
-/* Design System: Tally — tokens from docs/project-idea/28-hacker-news-clone/impeccable/DESIGN.md.
+/* Design System: ByteBoard — tokens from docs/project-idea/28-hacker-news-clone/impeccable/DESIGN.md.
    Colour is spent once: petrol marks the title block, your own state, the figure highlight and focus.
    Amber means stale/limited/rolled back. Red means error/dead. Every other grey is meta text or a
    dimmed state, never decoration. */
@@ -158,13 +158,13 @@ html[data-slow] {
    the design asks for, so this replaces it rather than approximating it.
 
    Opacity only, on bars already sitting on the live grid, so loading causes no layout shift (N8). */
-@keyframes tally-pulse {
+@keyframes byteboard-pulse {
   50% {
     opacity: 0.55;
   }
 }
 @utility pulse-skeleton {
-  animation: tally-pulse var(--pulse-duration, 1.4s) ease-in-out infinite;
+  animation: byteboard-pulse var(--pulse-duration, 1.4s) ease-in-out infinite;
 }
 
 /* Type hierarchy — DESIGN.md §Typography. Named so a component asks for a role, not a size. */

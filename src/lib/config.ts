@@ -3,7 +3,17 @@
  * (ARCHITECTURE Appendix G) are marked so a reader knows they are a decision, not a fact.
  */
 export const CFG = {
-  /** The ranking exponent. The editorial voice lives here — see lib/rank.ts. */
+  /**
+   * The ranking exponent, for display only.
+   *
+   * The score is computed in SQL by `refresh_ranked_posts`, which declares its own
+   * `gravity constant numeric := 1.8` — that is the copy that executes. `lib/rank.ts` used to hold
+   * a TypeScript implementation for Figure 1; the figure is gone and so is that file, because two
+   * copies of a formula with only one of them running is how they drift apart unnoticed.
+   *
+   * Changing the ranking therefore means a migration, not an edit here. This value only labels the
+   * Characteristics table, and a mismatch would make that table lie.
+   */
   gravity: 1.8,
   pageSize: 30,
   /**
@@ -37,7 +47,7 @@ export const CFG = {
   /**
    * Resolved in M11: karma-gated comment downvotes, HN's model. Posts take upvotes only.
    *
-   * No account can reach this yet. Karma counts votes cast on Tally, and the HN import brought no
+   * No account can reach this yet. Karma counts votes cast on ByteBoard, and the HN import brought no
    * vote history, so every imported account sits at 0 — the control is enforced and correct, and
    * invisible until the site has traffic. Lowering it would make the feature demonstrable and the
    * moderation model a fiction; the number stays honest.

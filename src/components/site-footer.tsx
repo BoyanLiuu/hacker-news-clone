@@ -15,10 +15,7 @@ export function SiteFooter({ rows }: { rows?: "comments" | "stories" }) {
   return (
     <footer className="mt-auto border-t border-rule pt-4 pb-[72px]">
       <div className="mx-auto flex max-w-wrap flex-wrap items-center gap-x-6 gap-y-2 px-4 type-meta text-meta sm:px-8">
-        <span>Tally</span>
-        <Link href="/rank-debug" className={LINK}>
-          Ranking details
-        </Link>
+        <span>ByteBoard</span>
         <Link href="/settings" className={LINK}>
           Settings
         </Link>

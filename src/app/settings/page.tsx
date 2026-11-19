@@ -19,7 +19,7 @@ export default async function SettingsPage() {
   await requireViewer();
 
   return (
-    <PageShell nav="" section="settings" aside={<Account />}>
+    <PageShell nav="" aside={<Account />}>
       <PageHead title="Settings" sub="Your profile and what you see." />
       <p className="mt-3 type-meta text-meta">
         Email, password and sign-in methods are on{" "}

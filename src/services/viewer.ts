@@ -6,7 +6,7 @@ import type { User, ViewerOpts } from "@/lib/types";
 import { toUser } from "./map";
 
 /** Set by `/preview?slow=on`. Slows every stepped transition 16x so it can be reviewed. */
-export const SLOW_COOKIE = "tally-slow-motion";
+export const SLOW_COOKIE = "byteboard-slow-motion";
 
 /**
  * The viewer plus what they are allowed to do.

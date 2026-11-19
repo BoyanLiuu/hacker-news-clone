@@ -36,7 +36,7 @@ export default async function EditPage({ searchParams }: { searchParams: Search 
   if (!open) redirect(`/item?id=${id}`);
 
   return (
-    <PageShell nav="" section="edit">
+    <PageShell nav="">
       <PageHead title="Edit post" sub={post.title} />
       <EditForm
         postId={post.id}

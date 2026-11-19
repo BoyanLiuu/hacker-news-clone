@@ -1,4 +1,3 @@
-import Link from "next/link";
 
 /**
  * The datasheet table: a numbered caption in meta weight before a bold title, a head band, pale
@@ -53,14 +52,3 @@ export function DatasheetTable({
   );
 }
 
-/** The note every listing's aside ends with: the data is synthetic, and where the rules live. */
-export function SyntheticNote() {
-  return (
-    <>
-      Measured on synthetic sample data.{" "}
-      <Link href="/rank-debug" className="text-petrol-ink underline underline-offset-2">
-        Ranking details
-      </Link>
-    </>
-  );
-}

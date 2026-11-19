@@ -1,13 +1,8 @@
-import Link from "next/link";
-import { DatasheetTable, SyntheticNote } from "@/components/datasheet-table";
-import { DecayFigure, FigureCaption, FigureFootnote, toFigurePoints } from "@/components/decay-figure";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { OutOfRange, Pager, pageFromParam, pageOutOfRange } from "@/components/pager";
 import { StoryList } from "@/components/story-list";
 import { toRows } from "@/lib/rows";
-import { CFG } from "@/lib/config";
-import { formatCount } from "@/lib/format";
-import { getCandidates, getRankedPage } from "@/services/posts";
+import { getRankedPage } from "@/services/posts";
 import { getViewerFlags } from "@/services/flags";
 import { getVotes } from "@/services/votes";
 import { getViewer, getViewerOpts } from "@/services/viewer";
@@ -23,12 +18,13 @@ type Search = Promise<{ p?: string }>;
  * unreachable and the plan's no-JS requirement impossible to meet, whatever the forms did. Awaiting
  * the ranked read here puts one database round trip into TTFB and the rows into the initial HTML.
  *
- * The aside keeps its boundary: Figure 1 reads all 973 candidates, it is the slow half of the page,
- * and nothing in it is a control. ARCHITECTURE §5: a dynamic page over a cached data read.
+ * No aside. The Characteristics datasheet that stated gravity, the candidate window, the recompute
+ * interval and the page size is gone with Figure 1 — the ordering is the product, not an exhibit
+ * about the ordering. ARCHITECTURE §5: a dynamic page over a cached data read.
  */
 export default async function FrontPage({ searchParams }: { searchParams: Search }) {
   return (
-    <PageShell rows="stories" nav="Front" section="front page" aside={<FrontAside />}>
+    <PageShell rows="stories" nav="Front">
       <PageHead title="Front page" sub="Ranked by score and age" />
       <RankedList searchParams={searchParams} />
     </PageShell>
@@ -66,42 +62,3 @@ async function RankedList({ searchParams }: { searchParams: Search }) {
   );
 }
 
-async function FrontAside() {
-  const opts = await getViewerOpts();
-  const candidates = await getCandidates(opts);
-
-  // Only the stories on this page get filled dots; the rest of the window is the hollow cloud.
-  const pageIds = new Set(candidates.slice(0, CFG.pageSize).map((row) => row.post.id));
-
-  return (
-    <div className="flex flex-col gap-7">
-      <section>
-        <FigureCaption gravity={CFG.gravity} live={CFG.gravity} />
-        <div className="mt-2">
-          <DecayFigure points={toFigurePoints(candidates, pageIds)} gravity={CFG.gravity} />
-        </div>
-        <FigureFootnote gravity={CFG.gravity} />
-        {/* The interactive version lives at /rank-debug, so the figure here is server-rendered SVG
-            and Motion never reaches this page. Measured: `/` ships 177.0 KB gz of JS against a
-            173.9 KB framework floor, and none of it is the figure's. */}
-        <p className="mt-2 text-[12px] text-meta">
-          <Link href="/rank-debug" className="text-petrol-ink underline underline-offset-2">
-            Tune gravity and see every term
-          </Link>
-        </p>
-      </section>
-
-      <DatasheetTable
-        number={1}
-        title="Characteristics"
-        rows={[
-          ["Gravity, G", CFG.gravity.toFixed(1)],
-          ["Candidate window", `${CFG.windowDays} days · ${formatCount(candidates.length)} stories`],
-          ["Recompute interval", `${CFG.recomputeSeconds} s`],
-          ["Page size", formatCount(CFG.pageSize)],
-        ]}
-        note={<SyntheticNote />}
-      />
-    </div>
-  );
-}

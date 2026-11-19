@@ -1,8 +1,5 @@
 import { signOut } from "@/services/session-actions";
 import Link from "next/link";
-import { CFG } from "@/lib/config";
-import { formatAge, formatUtcTime } from "@/lib/format";
-import { getRankingFreshness } from "@/services/posts";
 import { getAuthState, getViewer } from "@/services/viewer";
 
 /**
@@ -24,13 +21,13 @@ const NAV = [
 /** The square-and-diagonal mark. Authored, not a logo file — DESIGN.md §Title Block. */
 function Wordmark() {
   return (
-    <Link href="/" className="flex items-center gap-2" aria-label="Tally, front page">
+    <Link href="/" className="flex items-center gap-2" aria-label="ByteBoard, front page">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
         <rect x="1.5" y="1.5" width="17" height="17" rx="2" fill="none" stroke="var(--color-petrol)" strokeWidth="1.5" />
         <path d="M6 14 L14 6" stroke="var(--color-petrol)" strokeWidth="1.5" strokeLinecap="square" />
         <path d="M10.5 6 H14 V9.5" stroke="var(--color-petrol)" strokeWidth="1.5" strokeLinecap="square" fill="none" />
       </svg>
-      <span style={{ fontSize: 19, fontWeight: 750, letterSpacing: "-0.01em" }}>Tally</span>
+      <span style={{ fontSize: 19, fontWeight: 750, letterSpacing: "-0.01em" }}>ByteBoard</span>
     </Link>
   );
 }
@@ -59,11 +56,9 @@ function NavItem({ href, label, active }: { href: string; label: string; active:
 export function SiteHeader({
   current,
   account,
-  doc,
 }: {
   current: string;
   account: React.ReactNode;
-  doc: React.ReactNode;
 }) {
   return (
     <header>
@@ -94,8 +89,6 @@ export function SiteHeader({
           ))}
         </nav>
       </div>
-
-      {doc}
     </header>
   );
 }
@@ -152,49 +145,5 @@ export function AccountFallback() {
   return <span aria-hidden="true" className="h-4 w-40 rounded-hair bg-petrol/10" />;
 }
 
-const DOC_ROW =
-  "mx-auto flex h-[30px] max-w-wrap items-center gap-3 overflow-x-auto px-4 type-mono whitespace-nowrap max-sm:text-[11px] sm:px-8";
 
-/**
- * Machine facts only: section, revision, when the ranking last ran, its age, gravity. One row that
- * scrolls rather than wraps, so it holds its 30px height.
- *
- * Turns amber with a live dot when the ranking is behind — and `stale` is now a measurement rather
- * than a literal. M5 left it hardcoded `false` on the grounds that staleness can only be true if
- * something recorded when the ordering was computed; M9's `RankedPost.computedAt` is that record.
- *
- * Stale means "older than twice the recompute interval". One missed tick is normal jitter for a
- * minute-scheduled job and amber for it would make the indicator noise; two means the job is not
- * running, which is worth saying on every page.
- *
- * `rankedAt` null means the job has never run, which is its own kind of stale — and reads as "never"
- * rather than as the current time, because showing `now()` there is what made the old version a lie.
- */
-export async function DocumentLine({ section }: { section: string | Promise<string> }) {
-  const [label, { at: rankedAt, stale }] = await Promise.all([section, getRankingFreshness()]);
 
-  return (
-    <div className={`border-b ${stale ? "border-amber-line bg-amber-bg" : "border-tint bg-tint/40"}`}>
-      <div className={`${DOC_ROW} ${stale ? "text-amber" : "text-petrol-ink"}`}>
-        {stale ? <span aria-hidden="true" className="size-[6px] shrink-0 rounded-full bg-amber" /> : null}
-        <span>{label}</span>
-        <span aria-hidden="true">·</span>
-        <span>rev 862</span>
-        <span aria-hidden="true">·</span>
-        <span>ranked {rankedAt ? `${formatUtcTime(rankedAt)} UTC` : "never"}</span>
-        <span aria-hidden="true">·</span>
-        <span>{rankedAt ? `${formatAge(rankedAt)} ago` : "job not running"}</span>
-        <span className="ml-auto">gravity {CFG.gravity.toFixed(1)}</span>
-      </div>
-    </div>
-  );
-}
-
-/** Blank, but the same 30px height, so the line never shifts when the facts arrive. */
-export function DocumentLineFallback() {
-  return (
-    <div className="border-b border-tint bg-tint/40">
-      <div className={DOC_ROW} aria-hidden="true" />
-    </div>
-  );
-}

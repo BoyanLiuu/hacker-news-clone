@@ -22,7 +22,7 @@ export default async function AccountPage() {
   await requireViewer();
 
   return (
-    <PageShell nav="" section="account">
+    <PageShell nav="">
       <PageHead title="Account" sub="Email, password and sign-in methods." />
       <div className="mt-4">
         <Suspense fallback={<p className="type-meta text-meta">Loading…</p>}>

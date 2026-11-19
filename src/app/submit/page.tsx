@@ -35,7 +35,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Searc
   await requireViewer();
 
   return (
-    <PageShell nav="Submit" section="submit">
+    <PageShell nav="Submit">
       <PageHead title="Submit" sub="A link or a text post, not both." />
       <Form searchParams={searchParams} />
     </PageShell>

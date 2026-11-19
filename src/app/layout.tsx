@@ -5,7 +5,7 @@ import { chivo, chivoMono } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tally",
+  title: "ByteBoard",
   description: "A link aggregator whose front page is a computed ordering, stated as fact.",
 };
 

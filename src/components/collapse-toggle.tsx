@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-const STORE_KEY = "tally:collapsed:v1";
+const STORE_KEY = "byteboard:collapsed:v1";
 
 /**
  * Collapsed comment ids, held in localStorage and exposed as an external store.

@@ -24,6 +24,10 @@ import { getThreadPage, pageOfComment } from "./comments";
  */
 const OPTED_IN: ViewerOpts = { userId: "tally_tester", isModerator: false, showDead: true };
 describe("pageOfComment agrees with the order getThreadPage renders", () => {
+  // 20 s, not the 5 s default. This one talks to Supabase and loads a 1 000-comment thread once per
+  // sampled page — about 28 ms per round trip from here, and `buildTree` over 1 000 rows each time.
+  // It sat at ~4 s and tipped over the default as the seed grew, which is a slow test rather than a
+  // failing one; an explicit budget says so instead of looking like a regression every time.
   it("puts every sampled comment on the page that actually contains it", async () => {
     const paginated = await db.post.findFirst({
       where: { comments: { some: { parentId: null } } },
@@ -49,7 +53,7 @@ describe("pageOfComment agrees with the order getThreadPage renders", () => {
       const reply = roots.flatMap((r) => r.children)[0];
       if (reply) await expect(pageOfComment(reply.id, OPTED_IN)).resolves.toBe(page);
     }
-  });
+  }, 20_000);
 
   it("clamps a page beyond the end rather than rendering nothing", async () => {
     const paginated = await db.post.findFirst({

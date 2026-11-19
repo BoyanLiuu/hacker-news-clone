@@ -7,7 +7,7 @@ export type RawUser = {
 
 export const RAW_USERS: RawUser[] = [
   { username: "mlin", created: "2024-03-08", postKarma: 812, commentKarma: 472, about: "Data plumbing at a logistics company. Mostly here for the database threads.", isModerator: false, isShadowBanned: false, showDead: false },
-  { username: "moss", created: "2019-06-14", postKarma: 3120, commentKarma: 6290, about: "Moderator. Flags reach me; so does email at moderators@tally.example.", isModerator: true, isShadowBanned: false, showDead: true },
+  { username: "moss", created: "2019-06-14", postKarma: 3120, commentKarma: 6290, about: "Moderator. Flags reach me; so does email at moderators@byteboard.example.", isModerator: true, isShadowBanned: false, showDead: true },
   { username: "fernhill", created: "2026-11-10", postKarma: 0, commentKarma: 3, about: "", isModerator: false, isShadowBanned: false, showDead: false },
   { username: "quietbit", created: "2025-12-02", postKarma: 4, commentKarma: 37, about: "opinions", isModerator: false, isShadowBanned: true, showDead: false },
   { username: "halvorsen", created: "2021-02-19", postKarma: 2210, commentKarma: 1904, about: "Runs infrastructure for a small payments team. Writes at halfbakedops.com.", isModerator: false, isShadowBanned: false, showDead: false },

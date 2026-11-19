@@ -3,7 +3,7 @@ import type { ClerkProvider } from "@clerk/nextjs";
 type Appearance = NonNullable<React.ComponentProps<typeof ClerkProvider>["appearance"]>;
 
 /**
- * Clerk's prebuilt forms, dressed as Tally's.
+ * Clerk's prebuilt forms, dressed as ByteBoard's.
  *
  * The design has no account screens of its own — `ux-31-login.png` showed a username and password
  * form from an earlier reading of the brief, and Google OAuth superseded it (Appendix B). So rather
@@ -13,13 +13,15 @@ type Appearance = NonNullable<React.ComponentProps<typeof ClerkProvider>["appear
  * `cssLayerName` is what makes any of it take effect. Clerk injects its rules unlayered, and
  * unlayered CSS outranks every cascade layer regardless of order, so Tailwind's `@layer utilities`
  * lost silently: `bg-ink` was on the button and the button was still petrol. Naming the layer moves
- * Clerk into the `@layer clerk` declared at the top of `globals.css`, below all of Tailwind's.
+ * Clerk into the `@layer clerk` that `globals.css` declares between Tailwind's `preflight` and its
+ * `utilities` — above the reset so Clerk keeps its own spacing, below the utilities so these
+ * classes still win.
  *
  * `variables` carries the colours Clerk derives *other* colours from, which a flat class override
  * cannot reach: `colorPrimary` here resolves to `--accent: #00646e` and, on the same element,
  * `--accentHover: color-mix(in srgb, #00646e, white 20%)`. `elements` carries the rest.
  */
-export const tallyAppearance: Appearance = {
+export const byteBoardAppearance: Appearance = {
   cssLayerName: "clerk",
   variables: {
     colorPrimary: "#00646e",
@@ -47,7 +49,7 @@ export const tallyAppearance: Appearance = {
       "bg-ink hover:bg-ink-hover text-paper font-semibold text-[14px] h-9 rounded-hair shadow-none normal-case",
     // `border` as well as `border-field`, because a width is not implied by a colour. It used to be
     // load-bearing for a different reason — Clerk sat below Tailwind's preflight, which zeroed every
-    // border it drew — and that is fixed in `globals.css` now. Kept because these two want Tally's
+    // border it drew — and that is fixed in `globals.css` now. Kept because these two want ByteBoard's
     // field stroke rather than Clerk's, and a width stated beside its colour cannot drift from it.
     formFieldInput: "border border-field rounded-hair focus:border-petrol",
     socialButtonsBlockButton: "border border-field rounded-hair hover:border-field-hover",

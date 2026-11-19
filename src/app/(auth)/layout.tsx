@@ -1,5 +1,5 @@
 import { ClerkProvider } from "@clerk/nextjs";
-import { tallyAppearance } from "@/components/clerk-appearance";
+import { byteBoardAppearance } from "@/components/clerk-appearance";
 
 /**
  * `<ClerkProvider>` lives here and not in the root layout, which is M14's largest single saving.
@@ -18,5 +18,5 @@ import { tallyAppearance } from "@/components/clerk-appearance";
  * `clerkMiddleware`, and the header's logout is a Server Action — see `signOut`.
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <ClerkProvider appearance={tallyAppearance}>{children}</ClerkProvider>;
+  return <ClerkProvider appearance={byteBoardAppearance}>{children}</ClerkProvider>;
 }

@@ -1,30 +1,25 @@
 import { Suspense } from "react";
 import { KeyboardNav } from "./keyboard-nav";
 import { SiteFooter } from "./site-footer";
-import {
-  AccountBlock,
-  AccountFallback,
-  DocumentLine,
-  DocumentLineFallback,
-  SiteHeader,
-} from "./site-header";
+import { AccountBlock, AccountFallback, SiteHeader } from "./site-header";
 
 /**
  * Header, two-column grid, footer. Every page composes this rather than repeating the chrome.
  *
- * Deliberately synchronous, so the chrome flushes before any data read completes: the account
- * block, the document line and whatever the page streams into `children` each sit behind their own
- * boundary. The aside is a slot, not a render prop, so a page passes the element it wants.
+ * Deliberately synchronous, so the chrome flushes before any data read completes: the account block
+ * and whatever the page streams into `children` each sit behind their own boundary. The aside is a
+ * slot, not a render prop, so a page passes the element it wants.
+ *
+ * There is no `section` prop any more. It existed only to label the document line — the
+ * `front page · rev 862 · ranked 06:32 UTC · 17 s ago · gravity 1.8` strip — which is gone.
  */
 export function PageShell({
   nav,
-  section,
   aside,
   rows,
   children,
 }: {
   nav: string;
-  section: string | Promise<string>;
   /** What `j`/`k` move through here, if anything. Drives both the keys and the footer's hint. */
   rows?: "comments" | "stories";
   aside?: React.ReactNode;
@@ -37,11 +32,6 @@ export function PageShell({
         account={
           <Suspense fallback={<AccountFallback />}>
             <AccountBlock />
-          </Suspense>
-        }
-        doc={
-          <Suspense fallback={<DocumentLineFallback />}>
-            <DocumentLine section={section} />
           </Suspense>
         }
       />

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { DatasheetTable, SyntheticNote } from "@/components/datasheet-table";
 import { EmptyState } from "@/components/empty-state";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { OutOfRange, Pager, pageFromParam, pageOutOfRange } from "@/components/pager";
@@ -23,14 +22,7 @@ type Search = Promise<{ site?: string; p?: string }>;
  */
 export default function FromPage({ searchParams }: { searchParams: Search }) {
   return (
-    <PageShell rows="stories"
-      nav=""
-      section={searchParams.then((p) => {
-        const site = normaliseSite(p.site);
-        return site ? `from · ${site}` : "from";
-      })}
-      aside={<FromAside />}
-    >
+    <PageShell rows="stories" nav="">
       <Suspense fallback={<StoryListSkeleton rows={6} />}>
         <DomainColumn searchParams={searchParams} />
       </Suspense>
@@ -100,20 +92,6 @@ async function DomainColumn({ searchParams }: { searchParams: Search }) {
   );
 }
 
-function FromAside() {
-  return (
-    <DatasheetTable
-      number={1}
-      title="About this list"
-      rows={[
-        ["Grouped by", "Registrable domain"],
-        ["Order", "Newest first"],
-        ["Includes", "Links only; text posts have no site"],
-      ]}
-      note={<SyntheticNote />}
-    />
-  );
-}
 
 /** Accepts a bare host or a full URL, and rejects anything that is not a domain. */
 function normaliseSite(value: string | undefined): string | null {

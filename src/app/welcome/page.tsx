@@ -11,7 +11,7 @@ export default async function WelcomePage() {
   if (state === "active") redirect("/");
 
   return (
-    <PageShell nav="" section="welcome">
+    <PageShell nav="">
       <PageHead title="Choose a username" sub="Permanent, and the address of your profile." />
       <ClaimForm />
     </PageShell>

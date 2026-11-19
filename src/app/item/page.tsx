@@ -40,7 +40,6 @@ export default async function ItemPage({ searchParams }: { searchParams: Search 
   return (
     <PageShell rows="comments"
       nav=""
-      section={searchParams.then((p) => (p.id ? `item ${p.id}` : "item"))}
       aside={<ThreadAside searchParams={searchParams} />}
     >
       {/* Awaited, not streamed: the thread holds the post's vote arrow and the reply box, and a

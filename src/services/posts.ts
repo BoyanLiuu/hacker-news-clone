@@ -2,7 +2,6 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { CFG, DAY, HOUR } from "@/lib/config";
 import { db } from "@/lib/db";
-import { ageHoursBetween, isCandidate, rank } from "@/lib/rank";
 import { ANONYMOUS, type Page, type Post, type ScoredPost, type ViewerOpts } from "@/lib/types";
 import { AUTHOR, JOIN, toPost } from "./map";
 import { reachableAtPermalinkWhere, visiblePostWhere } from "./visibility";
@@ -72,75 +71,14 @@ async function newestPage(
 }
 
 /**
- * Front-page candidates: visible posts inside the 7-day window, scored and sorted.
- *
- * Scored in the application, not in SQL, and deliberately still so after the move to Postgres. The
- * score is non-indexable — it depends on `now()` — which is exactly why M9 exists: a `pg_cron` job
- * writes `RankedPost` and the front page then reads an indexed column. Doing that here would skip
- * the measurement M9 is built around, so this keeps the bounded-window read that makes scoring in
- * the application tractable: the `[createdAt]` index gives Postgres the window, and only those rows
- * are scored.
- *
- * This is what Figure 1 plots. There is no longer an `at` parameter: `/front/:date` is gone
- * (Appendix G, Q4), and it was the only caller that asked for a past moment.
- */
-export const getCandidates = cache(
-  async (opts: ViewerOpts, gravity: number = CFG.gravity): Promise<ScoredPost[]> => {
-    const at = new Date();
-    const windowStart = new Date(at.getTime() - CFG.windowDays * DAY);
-
-    const rows = await db.post.findMany({
-      ...JOIN,
-      where: {
-        AND: [visiblePostWhere(opts), { createdAt: { gte: windowStart } }],
-      },
-      orderBy: { createdAt: "desc" },
-      select: SELECT,
-    });
-
-    return rows
-      .map(toPost)
-      // `isCandidate` is still consulted: the bound above is the index's job, this is the rule's.
-      // Stating it in both places is deliberate — the query must not be the only place the window
-      // lives, or changing the rule means remembering to change a `where`.
-      .filter((post) => isCandidate(post.createdAt, at))
-      .map((post) => {
-        const points = post.scoreRaw;
-        const ageHours = ageHoursBetween(post.createdAt, at);
-        return { post, points, ageHours, score: rank(points, ageHours, gravity) };
-      })
-      .sort((a, b) => b.score - a.score);
-  },
-);
-
-/**
- * When the ranking was last computed, and whether that is behind.
- *
- * Decided here, not in the header: it depends on the clock, which the React compiler rejects during
- * render, and a per-component rule can disagree with itself across one page.
- *
- * Behind means older than *twice* the recompute interval — one missed tick is ordinary jitter for a
- * minute-scheduled job, two means the job is not running.
- */
-export type RankingFreshness = { at: Date | null; stale: boolean };
-
-export const getRankingFreshness = cache(async (): Promise<RankingFreshness> => {
-  const row = await db.rankedPost.aggregate({ _max: { computedAt: true } });
-  const at = row._max.computedAt ?? null;
-
-  return {
-    at,
-    // Never having run is its own kind of stale, and the louder one.
-    stale: at === null || Date.now() - at.getTime() > 2 * CFG.recomputeSeconds * 1000,
-  };
-});
-
-/**
  * The front page: an index scan on `RankedPost(score DESC)`, paginated in Postgres.
  *
  * Both shapes were measured before this one was kept (README): the index scan does 91x less
- * database work, but only ~17% of a request, since round-trip latency dominates. The deciding
- * reason is `getRankingFreshness` above — inline scoring has no `computedAt` to be stale against.
+ * database work, but only ~17% of a request, since round-trip latency dominates.
+ *
+ * The deciding reason used to be the staleness indicator — inline scoring has no `computedAt` to be
+ * stale against — and that indicator is gone with the document line. The materialised table stays
+ * on the measurement alone, which is the weaker of the two arguments and worth knowing.
  */
 /**
  * The front page, cached across requests for 60 s — matching `CFG.recomputeSeconds`, because the
@@ -189,10 +127,9 @@ async function rankedPageFromTable(page: number, opts: ViewerOpts): Promise<Page
   const where: Prisma.RankedPostWhereInput = { post: visiblePostWhere(opts) };
   const pageSize = CFG.pageSize;
 
-  // Two round trips, not three. `computedAt` arrives with the rows, so asking
-  // `getRankingFreshness()` here as well would have added a whole trip for a value already in hand —
-  // and at ~105 ms to Supabase a trip costs 400x what the query inside it costs (0.26 ms measured).
-  // The header calls it separately because it renders in its own Suspense boundary.
+  // Two round trips: the page of rows, and the count for the pager. At ~105 ms to Supabase a trip
+  // costs 400x what the query inside it costs (0.26 ms measured), so the number of trips is the
+  // only figure worth managing here.
   const [rows, total] = await Promise.all([
     db.rankedPost.findMany({
       ...JOIN,
@@ -200,23 +137,15 @@ async function rankedPageFromTable(page: number, opts: ViewerOpts): Promise<Page
       orderBy: { score: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      select: { score: true, computedAt: true, post: { select: SELECT } },
+      select: { post: { select: SELECT } },
     }),
     db.rankedPost.count({ where }),
   ]);
 
-  const asOf = rows[0]?.computedAt ?? new Date();
-
   return {
     items: rows.map((row) => {
       const post = toPost(row.post);
-      return {
-        post,
-        points: post.scoreRaw,
-        // Age as of the computation, so the printed arithmetic reproduces the stored score.
-        ageHours: ageHoursBetween(post.createdAt, asOf),
-        score: Number(row.score),
-      };
+      return { post, points: post.scoreRaw };
     }),
     page,
     pageSize,
