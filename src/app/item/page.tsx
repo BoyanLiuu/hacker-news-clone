@@ -12,7 +12,7 @@ import { ThreadSkeleton } from "@/components/thread-skeleton";
 import { CFG } from "@/lib/config";
 import { formatAgeLong } from "@/lib/format";
 import { countDescendants, flatten } from "@/lib/tree";
-import type { Post } from "@/lib/types";
+import type { CommentNode, Post } from "@/lib/types";
 import { getThreadPage } from "@/services/comments";
 import { getPostById } from "@/services/posts";
 import { getViewer, getViewerOpts } from "@/services/viewer";
@@ -157,15 +157,50 @@ async function ThreadAside({ searchParams }: { searchParams: Search }) {
       number={1}
       title="Thread contents"
       rows={roots.slice(0, 12).map((node) => [
-        // Author plus an opening clip, so a long thread can be navigated by what was said.
-        <span key={node.id} className="flex min-w-0 items-baseline gap-2">
-          <span className="font-semibold text-ink">{node.isDeleted ? "[deleted]" : node.author}</span>
-          <span className="truncate text-meta">{preview(node.text)}</span>
-        </span>,
+        <ContentsRow key={node.id} node={node} />,
         String(countDescendants(node)),
       ])}
       note="Sorted by score within each level. Collapsed threads stay collapsed on this device."
     />
+  );
+}
+
+/**
+ * One row of the contents table: who, and the first words of what they said.
+ *
+ * Two links rather than one, because the two halves point at different things — the name at the
+ * person, the clip at the comment. One link over the whole row would have to pick, and whichever it
+ * picked would be wrong half the time someone aimed at a username.
+ *
+ * The clip's href is absolute rather than a bare `#c123`, because the aside always lists page 1's
+ * roots while the reader may be on `cp=2`, where that element is not in the document. Spelling out
+ * the page makes the link correct from anywhere in the thread; from page 1 it is a same-document
+ * navigation and just scrolls.
+ */
+function ContentsRow({ node }: { node: CommentNode }) {
+  const clip = preview(node.text);
+
+  return (
+    <span className="flex min-w-0 items-baseline gap-2">
+      {node.isDeleted ? (
+        <span className="font-semibold text-ink">[deleted]</span>
+      ) : (
+        <Link href={`/user/${node.author}`} className="font-semibold text-ink hover:underline">
+          {node.author}
+        </Link>
+      )}
+
+      {/* A deleted comment has no body to clip, and a link with no text has no accessible name, so
+          the row keeps its name and its count and simply stops being a jump target. */}
+      {clip ? (
+        <Link
+          href={`/item?id=${node.postId}#c${node.id}`}
+          className="min-w-0 truncate text-meta hover:underline"
+        >
+          {clip}
+        </Link>
+      ) : null}
+    </span>
   );
 }
 
