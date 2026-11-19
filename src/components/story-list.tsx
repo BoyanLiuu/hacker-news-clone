@@ -1,5 +1,7 @@
+import { CFG } from "@/lib/config";
 import { editWindow } from "@/lib/edit-window";
 import type { StoryRowData } from "@/lib/rows";
+import { Bar } from "./skeleton";
 import { StoryRow } from "./story-row";
 
 /** The five-track grid, shared by the head band, the rows and the skeleton so nothing shifts. */
@@ -68,25 +70,31 @@ export function StoryList({
 
 /**
  * The Suspense fallback. Bars sit on the exact same grid as a real row, so the list does not move
- * when the data arrives — the zero-layout-shift budget in ARCHITECTURE §6.3 depends on it.
+ * when the data arrives — N8, zero layout shift, which is still a live requirement.
+ *
+ * The count defaults to a full page for that same reason: twelve bars standing in for thirty rows
+ * is a shift of eighteen rows, which is the thing the shared grid was protecting against. The last
+ * page of a listing still overshoots, and that is the right way round — a fallback that is too
+ * short pushes the footer down when the rows land.
  */
-export function StoryListSkeleton({ rows = 12 }: { rows?: number }) {
+export function StoryListSkeleton({ rows = CFG.pageSize }: { rows?: number }) {
   return (
     <div className="mt-4 rule-open">
       {HEAD_BAND}
 
-      <div className="rule-close" aria-busy="true" aria-label="Loading stories">
+      <div className="rule-close" role="status" aria-busy="true" aria-label="Loading stories">
         {Array.from({ length: rows }, (_, i) => (
           <div key={i} className={`${TRACKS} items-start px-1 py-[7px] rule-divide`}>
-            <Bar className="ml-auto w-4" />
-            <Bar className="ml-auto hidden w-11 sm:block" />
+            {/* Every bar states its own height — `Bar` has no default, see `skeleton.tsx`. */}
+            <Bar className="ml-auto h-[12px] w-4" />
+            <Bar className="ml-auto hidden h-[12px] w-11 sm:block" />
             <span className="min-w-0">
               {/* Widths vary per row so the block reads as text, not as a progress bar. */}
               <Bar className="h-[14px]" style={{ width: `${52 + ((i * 37) % 40)}%` }} />
               <Bar className="mt-[8px] h-[10px]" style={{ width: `${24 + ((i * 13) % 18)}%` }} />
             </span>
-            <Bar className="ml-auto hidden w-[30px] sm:block" />
-            <Bar className="ml-auto hidden w-6 sm:block" />
+            <Bar className="ml-auto hidden h-[12px] w-[30px] sm:block" />
+            <Bar className="ml-auto hidden h-[12px] w-6 sm:block" />
           </div>
         ))}
       </div>
@@ -94,12 +102,3 @@ export function StoryListSkeleton({ rows = 12 }: { rows?: number }) {
   );
 }
 
-function Bar({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <span
-      aria-hidden="true"
-      style={style}
-      className={`block h-[12px] pulse-skeleton rounded-hair bg-skeleton motion-reduce:animate-none ${className}`}
-    />
-  );
-}

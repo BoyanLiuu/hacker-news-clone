@@ -27,7 +27,10 @@ export function OutOfRange({ page, basePath, query = {} }: { page: Page<unknown>
 
 /**
  * Page links as type, not boxed buttons — lists never get boxed controls (DESIGN.md §Text Buttons).
- * Rendered as links so paging works with JavaScript disabled, which the reading paths require.
+ *
+ * Anchors rather than form controls, and that outlived the no-JS requirement it was first written
+ * for: a page is a location, so it has to be shareable, crawlable and reachable with the back
+ * button, none of which a button gives you.
  */
 export function Pager({ page, basePath, query = {} }: { page: Page<unknown>; basePath: string; query?: Record<string, string> }) {
   if (page.total <= page.pageSize) return null;

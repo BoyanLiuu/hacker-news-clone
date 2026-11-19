@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { CommentTree } from "@/components/comment-node";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { Notice } from "@/components/notice";
@@ -7,6 +8,7 @@ import { PageShell } from "@/components/page-shell";
 import { pageFromParam } from "@/components/pager";
 import { PostHeader } from "@/components/post-header";
 import { ReplyForm } from "@/components/reply-form";
+import { ThreadSkeleton } from "@/components/thread-skeleton";
 import { CFG } from "@/lib/config";
 import { formatAgeLong } from "@/lib/format";
 import { countDescendants, flatten } from "@/lib/tree";
@@ -29,8 +31,15 @@ type Search = Promise<{ id?: string; dup?: string; confirm?: string; cp?: string
  * The id is validated here, in the page body, so `notFound()` can set a 404 status — once the shell
  * has been flushed it cannot. The trade is that Next answers with its own minimal error document
  * rather than `not-found.tsx`; the status, the noindex and the browser-rendered page are all
- * correct, but a reader with JavaScript disabled sees an empty 404 rather than a styled one. A
- * wrong status code is worse: it makes every dead link look alive to crawlers and link checkers.
+ * correct. A wrong status code is worse: it makes every dead link look alive to crawlers and link
+ * checkers.
+ *
+ * That gate costs two sequential round trips before the first byte when signed in — `getViewerOpts`
+ * resolves the viewer, then `getPostById` needs the result — and one when signed out, where
+ * `loadSession` returns without touching the database. Both are request-cached, so the thread below
+ * pays nothing to read the post again. What the boundary buys is the comment read, which is the
+ * expensive one: a 500-comment thread no longer holds the header, the nav and the story back while
+ * it loads.
  */
 export default async function ItemPage({ searchParams }: { searchParams: Search }) {
   const id = Number((await searchParams).id);
@@ -42,9 +51,9 @@ export default async function ItemPage({ searchParams }: { searchParams: Search 
       nav=""
       aside={<ThreadAside searchParams={searchParams} />}
     >
-      {/* Awaited, not streamed: the thread holds the post's vote arrow and the reply box, and a
-          Suspense boundary would put both inside a `<div hidden>` that only JavaScript opens. */}
-      <Thread searchParams={searchParams} />
+      <Suspense fallback={<ThreadSkeleton />}>
+        <Thread searchParams={searchParams} />
+      </Suspense>
     </PageShell>
   );
 }

@@ -26,7 +26,8 @@ const CLERK_COOKIE_PREFIXES = ["__session", "__clerk_db_jwt", "clerk_active_cont
  * This exists to get `<ClerkProvider>` off the reading paths. Clerk's `<SignOutButton>` is a client
  * component and the header renders on every page, so one logout button pulled Clerk's React SDK
  * app-wide: measured at 313.7 KB gz of first-party JavaScript on `/`, against a 174 KB framework
- * floor and an N10 budget of "under 10 KB on top of it". Without it, `/` ships 181.4 KB.
+ * floor. Without it, `/` ships 181.4 KB. See `(auth)/layout.tsx` on why that still matters now the
+ * stated budget is gone.
  *
  * Two things are required, and the first version shipped only one. Revoking the session kills it
  * for anyone holding a copy of the token. Deleting the cookies is what signs *this* browser out —

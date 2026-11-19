@@ -23,7 +23,7 @@ type Search = Promise<{ site?: string; p?: string }>;
 export default function FromPage({ searchParams }: { searchParams: Search }) {
   return (
     <PageShell rows="stories" nav="">
-      <Suspense fallback={<StoryListSkeleton rows={6} />}>
+      <Suspense fallback={<StoryListSkeleton />}>
         <DomainColumn searchParams={searchParams} />
       </Suspense>
     </PageShell>

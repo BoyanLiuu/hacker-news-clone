@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { OutOfRange, Pager, pageFromParam, pageOutOfRange } from "@/components/pager";
-import { StoryList } from "@/components/story-list";
+import { StoryList, StoryListSkeleton } from "@/components/story-list";
 import { toRows } from "@/lib/rows";
 import { getRankedPage } from "@/services/posts";
 import { getViewerFlags } from "@/services/flags";
@@ -12,21 +13,27 @@ type Search = Promise<{ p?: string }>;
 /**
  * The ranked front page. Rendered per request, because the ranking is a function of now().
  *
- * The rows are **not** behind a Suspense boundary, and that is M11's correction to M6. React streams
- * suspended content into a `<div hidden>` and swaps it in with an inline script, so with JavaScript
- * disabled the boundary served skeleton bars and nothing else — which made the vote forms inside it
- * unreachable and the plan's no-JS requirement impossible to meet, whatever the forms did. Awaiting
- * the ranked read here puts one database round trip into TTFB and the rows into the initial HTML.
+ * The rows stream behind a Suspense boundary, so the header, the nav and the skeleton grid leave
+ * the server before the ranked read resolves. M11 had removed the boundary: React streams suspended
+ * content into a `<div hidden>` and swaps it in with an inline script, which put the vote forms out
+ * of reach with JavaScript disabled, and the plan then required reading without it. That
+ * requirement was withdrawn on 19 Nov 2026 (ARCHITECTURE §2, N3), and with it the reason to pay a
+ * database round trip inside TTFB on every page view.
+ *
+ * The page function is synchronous and awaits nothing, which is what lets the shell flush first —
+ * an `await` here would block it just as surely as rendering the list inline did.
  *
  * No aside. The Characteristics datasheet that stated gravity, the candidate window, the recompute
  * interval and the page size is gone with Figure 1 — the ordering is the product, not an exhibit
  * about the ordering. ARCHITECTURE §5: a dynamic page over a cached data read.
  */
-export default async function FrontPage({ searchParams }: { searchParams: Search }) {
+export default function FrontPage({ searchParams }: { searchParams: Search }) {
   return (
     <PageShell rows="stories" nav="Front">
       <PageHead title="Front page" sub="Ranked by score and age" />
-      <RankedList searchParams={searchParams} />
+      <Suspense fallback={<StoryListSkeleton />}>
+        <RankedList searchParams={searchParams} />
+      </Suspense>
     </PageShell>
   );
 }

@@ -57,8 +57,9 @@ function Submit({ label, down }: { label: string; down?: boolean }) {
  * The optimistic value comes from `useFormStatus().data` — the FormData React is currently
  * submitting — rather than from `useOptimistic`. `useOptimistic` would need its setter called inside
  * the action, which means wrapping `formAction` in a client closure, and a closure is not a Server
- * Action reference, so the form stops working with JavaScript disabled. Both requirements sit on the
- * same checklist line, and the no-JS one cannot be faked. This owns no state and so cannot go stale.
+ * Action reference — so the form cannot post until React has hydrated, where this version posts
+ * from the moment the HTML lands. Trading a working early click for a smoother late one is the
+ * wrong way round on a list of thirty rows. This owns no state and so cannot go stale.
  */
 function Points({
   points,

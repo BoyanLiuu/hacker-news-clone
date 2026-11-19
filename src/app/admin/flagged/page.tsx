@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { DatasheetTable } from "@/components/datasheet-table";
+import { LoadingLine } from "@/components/loading-line";
 import { Notice } from "@/components/notice";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { CFG } from "@/lib/config";
@@ -16,15 +18,18 @@ export default async function FlaggedPage() {
   return (
     <PageShell nav="" aside={<Thresholds />}>
       <PageHead title="Flagged and dead" sub="Items awaiting review." />
-      {/* No boundary: every row carries a Kill or Restore form, and React streams suspended
-          content into a `<div hidden>` that only JavaScript opens. See `submit/page.tsx`. */}
-      <Queue />
+      <Suspense fallback={<LoadingLine>Loading the queue…</LoadingLine>}>
+        <Queue />
+      </Suspense>
     </PageShell>
   );
 }
 
 async function Queue() {
-  // Redirects a signed-out visitor; returns null for a signed-in non-moderator.
+  // Returns null for a signed-in non-moderator, which is the only case that reaches here: the page
+  // body already redirected anyone signed out. That ordering is what makes streaming this safe —
+  // the redirect happens before the shell flushes, and the refusal inside the boundary is a
+  // rendered notice rather than a status.
   const viewer = await requireModerator();
 
   if (!viewer) {

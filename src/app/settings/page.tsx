@@ -28,7 +28,9 @@ export default async function SettingsPage() {
         </Link>
         .
       </p>
-      {/* No boundary around a form — see `submit/page.tsx`. */}
+      {/* No boundary, and not for `submit/page.tsx`'s withdrawn reason: `Form` calls the same
+          `requireViewer` the gate above already called, and it resolves from `loadSession`'s
+          request cache. A boundary here would flash a fallback in place of data in memory. */}
       <Form />
     </PageShell>
   );

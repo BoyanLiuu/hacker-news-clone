@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { CommentTree } from "@/components/comment-node";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { PageShell } from "@/components/page-shell";
 import { ReplyForm } from "@/components/reply-form";
+import { PermalinkSkeleton } from "@/components/thread-skeleton";
 import { formatAgeLong } from "@/lib/format";
 import { countDescendants, flatten } from "@/lib/tree";
 import { getSubtree } from "@/services/comments";
@@ -19,7 +21,10 @@ type Search = Promise<{ id?: string }>;
  * see what it is replying to. This is where "continue this thread" lands when a subtree passes the
  * depth cap, so the tree re-roots here and depth starts counting again from this comment.
  *
- * The id is validated in the page body so the status is a real 404 — see item/page.tsx.
+ * The id is validated in the page body so the status is a real 404 — see item/page.tsx. That gate
+ * reads the subtree, and `getSubtree` is request-cached, so the column below re-reads it for
+ * nothing. The boundary covers what the gate did not need: the post the comment belongs to, and
+ * this viewer's votes and flags on the subtree.
  */
 export default async function ReplyPage({ searchParams }: { searchParams: Search }) {
   const id = Number((await searchParams).id);
@@ -31,8 +36,9 @@ export default async function ReplyPage({ searchParams }: { searchParams: Search
       nav=""
       aside={<PermalinkAside searchParams={searchParams} />}
     >
-      {/* Awaited for the same reason as the thread: this page is mostly a reply form. */}
-      <Permalink searchParams={searchParams} />
+      <Suspense fallback={<PermalinkSkeleton />}>
+        <Permalink searchParams={searchParams} />
+      </Suspense>
     </PageShell>
   );
 }

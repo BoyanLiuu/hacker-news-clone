@@ -6,9 +6,10 @@ import { byteBoardAppearance } from "@/components/clerk-appearance";
  *
  * The provider pulls Clerk's React SDK into every page that sits under it, and in the root layout
  * that meant every reading path: measured at 313.7 KB gz of first-party JavaScript on `/`, against
- * a 174 KB framework floor and an N10 budget of "under 10 KB on top of it". Scoped to the pages that
- * actually render Clerk's own components, `/` ships 181.2 KB — 7.2 KB over the floor, inside
- * the budget for the first time since M10.
+ * a 174 KB framework floor. Scoped to the pages that actually render Clerk's own components, `/`
+ * ships 181.2 KB — 7.2 KB over the floor. The explicit JS budget that motivated the measurement was
+ * withdrawn on 19 Nov 2026 (ARCHITECTURE §2, N10); shipping an auth SDK to pages with no auth UI is
+ * still waste, so the scoping stands on its own.
  *
  * `(auth)` is a route group, so the URLs are still `/sign-in`, `/sign-up` and `/account`. What the
  * group actually collects is every page that renders one of Clerk's own components — that, and not

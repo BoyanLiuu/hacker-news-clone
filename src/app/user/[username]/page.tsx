@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CommentBody } from "@/components/comment-body";
 import { DatasheetTable } from "@/components/datasheet-table";
+import { LoadingLine } from "@/components/loading-line";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { StoryList } from "@/components/story-list";
 import { toRows } from "@/lib/rows";
@@ -16,15 +17,18 @@ import Link from "next/link";
 type Params = Promise<{ username: string }>;
 type Search = Promise<{ tab?: string }>;
 
-/** A profile is a record, not a stage: karma, when they joined, about, and what they wrote. */
-/** Validated before streaming, so an unknown name answers 404 rather than 200 — see item/page.tsx. */
-/** Validated in the page body so the status is a real 404 — see item/page.tsx. */
+/**
+ * A profile is a record, not a stage: karma, when they joined, about, and what they wrote.
+ *
+ * The name is validated before streaming, so an unknown one answers 404 rather than 200 — see
+ * item/page.tsx.
+ */
 export default async function UserPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   if (!(await getUserByName((await params).username))) notFound();
 
   return (
     <PageShell rows="stories" nav="">
-      <Suspense fallback={<p className="type-meta text-meta">Loading the profile…</p>}>
+      <Suspense fallback={<LoadingLine>Loading the profile…</LoadingLine>}>
         <Profile params={params} searchParams={searchParams} />
       </Suspense>
     </PageShell>

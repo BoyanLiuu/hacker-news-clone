@@ -14,8 +14,9 @@ type Search = Promise<{ id?: string }>;
  *
  * Everything is decided in the page body, before the first byte: a `redirect()` or `notFound()`
  * after streaming has begun cannot set a status, and this page's whole job is to decide whether
- * you may be here. No Suspense boundary, for the reason in `submit/page.tsx` — a form inside one
- * is unreachable without JavaScript.
+ * you may be here. No Suspense boundary either, and here that follows rather than being a separate
+ * choice — every read this page makes is one a gate already needed, so there is nothing left to
+ * stream behind a fallback.
  *
  * The action re-checks ownership and the window. This page decides what to *show*; it is not the
  * permission check, because the action is reachable without it.

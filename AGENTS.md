@@ -70,7 +70,13 @@ fine; values and functions are not. `src/lib/rows.ts` exists for exactly this re
 
 And verify a listing by counting rows in the served HTML, not by reading the build log:
 
-    curl -s localhost:PORT/ | grep -c '<li class="grid'
+    curl -s localhost:PORT/ | grep -o '<li data-kbd-row' | wc -l   # expect 30, CFG.pageSize
+
+The obvious version of that command is wrong twice over, and both failures read as "the page is
+broken" rather than "the command is". `grep -c` counts *matching lines*, and the served HTML is one
+line, so it returns 1 for a full page and 0 for an empty one — never 30. And match on the attribute,
+never on `class`: a row renders `<li data-kbd-row="true" class="grid …">`, so the earlier
+`'<li class="grid'` found nothing at all on a working page.
 
 ### A Suspense boundary makes every control inside it unreachable without JavaScript
 
@@ -79,16 +85,30 @@ it into place with an inline script. With scripting off that script never runs, 
 fallback is all anyone sees. M11 lost the plan's no-JS voting requirement to this: `/` served 30
 skeleton bars, and no form inside could be reached whatever the form did.
 
-So a boundary may wrap presentation, never a control. On `/` the rows are awaited directly and only
-the aside streams, which is also why `StoryListSkeleton` is no longer used there.
+**That requirement was withdrawn on 19 Nov 2026 (ARCHITECTURE §2, N3), and the boundaries went back
+on `/`, `/item`, `/reply`, `/submit` and `/admin/flagged`.** The mechanism above is still exactly
+true — it is just no longer a defect, so do not remove a boundary citing it. The rule it leaves
+behind is narrower and is about status codes, not scripting:
 
-Verify it the only way that counts — scripting genuinely off, not "I didn't click anything":
+### Anything that sets a status code goes in the page body
+
+A `redirect()` or `notFound()` reached after the shell has flushed cannot set a status. The response
+is already 200 and the redirect travels in the payload, so a crawler records a 200 for a page it was
+never allowed to see. So `requireViewer()`, `requireModerator()`'s redirect path and every id check
+stay in the page function, above the boundary, and only the data reads stream.
+
+`/settings` and `/edit` have no boundary for a different reason worth keeping straight: every read
+they make is one a gate already needed, and `loadSession` is request-cached, so there is nothing
+left to stream and a boundary would only flash a fallback over data in memory.
+
+If you do need to test a no-JS path, scripting has to be genuinely off, not "I didn't click
+anything":
 
     const cdp = await context.newCDPSession(page)
     await cdp.send("Emulation.setScriptExecutionDisabled", { value: true })
 
-Two traps when testing a signed-in no-JS path. Clerk's `__session` JWT lives **60 seconds** and is
-refreshed by Clerk's own client script, so load a page with JS first and act immediately; a stale
+Two traps when testing a signed-in path that way. Clerk's `__session` JWT lives **60 seconds** and
+is refreshed by Clerk's own client script, so load a page with JS first and act immediately; a stale
 token makes the action run and refuse, which looks exactly like the action never running. And
 `page.request` did not carry the context's session cookie here, so drive the real browser instead.
 
