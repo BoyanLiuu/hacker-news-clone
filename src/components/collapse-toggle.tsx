@@ -82,6 +82,7 @@ export function CollapseToggle({ id, hidden }: { id: number; hidden: number }) {
   return (
     <button
       type="button"
+      data-kbd-collapse=""
       onClick={() => setCollapsed(id, !collapsed)}
       aria-expanded={!collapsed}
       aria-label={collapsed ? `Expand this comment and ${hidden} replies` : "Collapse this comment"}

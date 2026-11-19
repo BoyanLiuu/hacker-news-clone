@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { getViewer } from "@/services/viewer";
+import { KeyboardHint } from "./keyboard-hint";
 
 const LINK = "text-meta underline decoration-rule underline-offset-[3px]";
 
-export function SiteFooter() {
+/**
+ * `rows` says what the page under this footer can be navigated with, and the hint names only those
+ * keys. The comps show `j k move · u vote · x collapse · ?`, which is the thread's set — on a
+ * listing there is nothing to collapse, and advertising a key that does nothing is worse than
+ * advertising none. Pages with no rows at all get no hint.
+ */
+export function SiteFooter({ rows }: { rows?: "comments" | "stories" }) {
   return (
     <footer className="mt-auto border-t border-rule pt-4 pb-[72px]">
       <div className="mx-auto flex max-w-wrap flex-wrap items-center gap-x-6 gap-y-2 px-4 type-meta text-meta sm:px-8">
@@ -20,6 +27,7 @@ export function SiteFooter() {
           <ModerationLink />
         </Suspense>
         <span>Stories, people and comments here are synthetic sample data.</span>
+        {rows ? <KeyboardHint rows={rows} /> : null}
       </div>
     </footer>
   );

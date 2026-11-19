@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { KeyboardNav } from "./keyboard-nav";
 import { SiteFooter } from "./site-footer";
 import {
   AccountBlock,
@@ -19,10 +20,13 @@ export function PageShell({
   nav,
   section,
   aside,
+  rows,
   children,
 }: {
   nav: string;
   section: string | Promise<string>;
+  /** What `j`/`k` move through here, if anything. Drives both the keys and the footer's hint. */
+  rows?: "comments" | "stories";
   aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -56,7 +60,8 @@ export function PageShell({
         </div>
       </main>
 
-      <SiteFooter />
+      <SiteFooter rows={rows} />
+      {rows ? <KeyboardNav /> : null}
     </div>
   );
 }

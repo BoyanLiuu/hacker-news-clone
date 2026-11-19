@@ -38,7 +38,7 @@ export default async function ItemPage({ searchParams }: { searchParams: Search 
   if (!(await getPostById(id, await getViewerOpts()))) notFound();
 
   return (
-    <PageShell
+    <PageShell rows="comments"
       nav=""
       section={searchParams.then((p) => (p.id ? `item ${p.id}` : "item"))}
       aside={<ThreadAside searchParams={searchParams} />}

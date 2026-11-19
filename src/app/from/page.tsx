@@ -23,7 +23,7 @@ type Search = Promise<{ site?: string; p?: string }>;
  */
 export default function FromPage({ searchParams }: { searchParams: Search }) {
   return (
-    <PageShell
+    <PageShell rows="stories"
       nav=""
       section={searchParams.then((p) => {
         const site = normaliseSite(p.site);

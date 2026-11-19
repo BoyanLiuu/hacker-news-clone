@@ -86,7 +86,12 @@ export function RankDebug({ rows, live, total }: { rows: DebugRow[]; live: numbe
 
         <GravitySlider gravity={gravity} live={live} onChange={setGravity} />
 
-        <table className="mt-5 w-full border-collapse text-[13px] rule-open">
+        {/* Scrolls sideways below ~420 px rather than dropping columns. Six numeric columns are
+            the whole point of this page — it exists to show every term of the score — so hiding
+            some at 375 px would leave a table that cannot answer the question it was built for.
+            `tabindex` because a scrollable region has to be reachable by keyboard. */}
+        <div className="mt-5 overflow-x-auto" tabIndex={0} role="region" aria-label="Score terms">
+        <table className="w-full min-w-[420px] border-collapse text-[13px] rule-open">
           <thead>
             <tr className="bg-head type-label text-ink-2">
               <th scope="col" className="px-2 py-[6px] text-right">
@@ -130,6 +135,7 @@ export function RankDebug({ rows, live, total }: { rows: DebugRow[]; live: numbe
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <aside className="page-aside">

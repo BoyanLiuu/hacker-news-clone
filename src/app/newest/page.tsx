@@ -16,7 +16,7 @@ type Search = Promise<{ p?: string }>;
 /** Strict reverse-chronological. No ranking, which the aside states rather than implying. */
 export default function NewestPage({ searchParams }: { searchParams: Search }) {
   return (
-    <PageShell nav="Newest" section="newest" aside={<NewestAside />}>
+    <PageShell rows="stories" nav="Newest" section="newest" aside={<NewestAside />}>
       <PageHead title="Newest" sub="Every submission, newest first. Not ranked." />
       <Suspense fallback={<StoryListSkeleton />}>
         <NewestList searchParams={searchParams} />

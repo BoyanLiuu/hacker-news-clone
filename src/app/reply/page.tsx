@@ -27,7 +27,7 @@ export default async function ReplyPage({ searchParams }: { searchParams: Search
   if (!(await getSubtree(id, await getViewerOpts()))) notFound();
 
   return (
-    <PageShell
+    <PageShell rows="comments"
       nav=""
       section={searchParams.then((p) => (p.id ? `comment ${p.id}` : "comment"))}
       aside={<PermalinkAside searchParams={searchParams} />}

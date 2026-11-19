@@ -23,7 +23,7 @@ export default async function UserPage({ params, searchParams }: { params: Param
   if (!(await getUserByName((await params).username))) notFound();
 
   return (
-    <PageShell nav="" section={params.then((p) => `user ${p.username}`)}>
+    <PageShell rows="stories" nav="" section={params.then((p) => `user ${p.username}`)}>
       <Suspense fallback={<p className="type-meta text-meta">Loading the profile…</p>}>
         <Profile params={params} searchParams={searchParams} />
       </Suspense>

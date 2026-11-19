@@ -56,6 +56,12 @@
   --font-sans: var(--font-chivo), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-chivo-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* The only two shadows in the product, and DESIGN.md §Shadow Vocabulary fixes both values.
+     `shadow-dialog` is the keyboard dialog, the single floating surface the Rules Not Lift Rule
+     allows; `--color-scrim` is its backdrop. */
+  --shadow-dialog: 0 12px 32px rgba(21, 23, 26, 0.18);
+  --color-scrim: rgba(21, 23, 26, 0.25);
+
   /* corners are nearly square */
   --radius-hair: 2px;
   --radius-soft: 3px;
@@ -326,4 +332,22 @@ li[data-vote="failed"] {
 }
 @utility rule-divide {
   border-bottom: 1px solid var(--color-rule-2);
+}
+
+
+/* The keyboard cursor — M15.
+   `--color-cursor` is the token the just-voted row uses, which is the point: both mean "this row is
+   the one you are acting on". The 6 px spread pads the wash outward without changing layout, so
+   moving the cursor down a thread never reflows it (DESIGN.md §Elevation). */
+[data-cursor="true"] {
+  background-color: var(--color-cursor);
+  box-shadow: 0 0 0 6px var(--color-cursor);
+}
+
+/* Stepped, like every other state change here, and collapsed to nothing under reduced motion by
+   the rule further up this file. */
+[data-kbd-row] {
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--step-duration);
+  transition-timing-function: steps(2, end);
 }

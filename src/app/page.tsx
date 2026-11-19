@@ -28,7 +28,7 @@ type Search = Promise<{ p?: string }>;
  */
 export default async function FrontPage({ searchParams }: { searchParams: Search }) {
   return (
-    <PageShell nav="Front" section="front page" aside={<FrontAside />}>
+    <PageShell rows="stories" nav="Front" section="front page" aside={<FrontAside />}>
       <PageHead title="Front page" sub="Ranked by score and age" />
       <RankedList searchParams={searchParams} />
     </PageShell>

@@ -41,6 +41,8 @@ function Submit({ label, down }: { label: string; down?: boolean }) {
     <button
       type="submit"
       disabled={pending}
+      // Only the upvote is reachable by key: `u` is one key and a downvote is a different intent.
+      {...(down ? {} : { "data-kbd-vote": "" })}
       aria-label={`${down ? "Downvote" : "Upvote"} ${label}`}
       className="vote-pad group flex size-[26px] items-center justify-center rounded-soft hover:bg-petrol/7 disabled:cursor-default"
     >

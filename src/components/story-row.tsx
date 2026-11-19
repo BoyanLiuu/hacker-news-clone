@@ -58,6 +58,7 @@ export function StoryRow({
   return (
     <li
       data-vote={state}
+      data-kbd-row
       className="grid grid-cols-[26px_28px_1fr] items-start gap-x-3 px-1 py-[7px] rule-divide hover:bg-hover focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-petrol sm:grid-cols-[30px_70px_1fr_52px_74px]"
     >
       <span className={`type-meta pt-[3px] text-right ${metaInk}`}>{rank}</span>

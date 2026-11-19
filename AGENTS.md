@@ -91,3 +91,22 @@ Two traps when testing a signed-in no-JS path. Clerk's `__session` JWT lives **6
 refreshed by Clerk's own client script, so load a page with JS first and act immediately; a stale
 token makes the action run and refuse, which looks exactly like the action never running. And
 `page.request` did not carry the context's session cookie here, so drive the real browser instead.
+
+### Values shared across the client boundary live in `src/lib/`
+
+`src/lib/shortcuts.ts` and `src/lib/rows.ts` exist only because a plain value exported from a
+`"use client"` module is a client *reference*, and calling or reading it on the server throws at
+runtime while `tsc`, `eslint` and `next build` all pass.
+
+This has now cost three milestones: `TITLE_MAX` rendered as source text (M5), `toRows()` served 30
+skeleton bars with a clean build (M11), and `SHORTCUTS.filter is not a function` 500'd every page
+(M15). The rule did not stop the third. So: a value both sides read goes in `src/lib/`, full stop —
+not in the component that happens to use it most.
+
+### Reading a computed style in the same frame reads the *old* value
+
+State changes here are `steps(2, end)` over `--step-duration`, so `getComputedStyle` immediately
+after a change returns the pre-transition value. In M15 that made a working cursor wash look like
+broken CSS for several rounds of debugging. Wait past the duration before asserting on colour,
+shadow or transform — and the same caution applies to a URL after a Server Action redirect, which
+also needs `waitForURL` rather than a fixed timeout.
