@@ -1,4 +1,4 @@
-import { SignOutButton } from "@clerk/nextjs";
+import { signOut } from "@/services/session-actions";
 import Link from "next/link";
 import { CFG } from "@/lib/config";
 import { formatAge, formatUtcTime } from "@/lib/format";
@@ -105,7 +105,10 @@ export function SiteHeader({
  * signed-in/signed-out pair: a Clerk session with no username yet has nothing to put in a byline,
  * so it gets a link to finish rather than a name.
  *
- * `SignOutButton` is Clerk's — the old `/logout` route never existed, which nothing noticed because
+ * Logging out is a form posting to a Server Action, not Clerk's `<SignOutButton>`. That component
+ * is a client component, and this header is on every page, so it pulled `<ClerkProvider>` and
+ * Clerk's React SDK onto every reading path — 132.5 KB gz, measured. See `signOut`. The old
+ * `/logout` route never existed, which nothing noticed because
  * phase 1 had no session to end.
  */
 export async function AccountBlock() {
@@ -136,11 +139,11 @@ export async function AccountBlock() {
       <Link href="/settings" className="text-ink-2">
         Settings
       </Link>
-      <SignOutButton>
-        <button type="button" className="text-ink-2 hover:underline">
+      <form action={signOut}>
+        <button type="submit" className="text-ink-2 hover:underline">
           Log out
         </button>
-      </SignOutButton>
+      </form>
     </>
   );
 }

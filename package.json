@@ -16,7 +16,8 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:rls": "node scripts/verify-rls.mjs"
+    "verify:rls": "node scripts/verify-rls.mjs",
+    "db:seed:big": "tsx --env-file=.env scripts/seed-big-threads.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.10.2",

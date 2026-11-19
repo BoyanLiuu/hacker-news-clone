@@ -4,9 +4,10 @@
  */
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { pageOfComment, threadTag } from "./comments";
 import { childPath, depthOf } from "@/lib/path";
 import { validateComment } from "@/lib/validate";
 import { getViewer } from "./viewer";
@@ -100,11 +101,15 @@ export async function createComment(_prev: ReplyState, form: FormData): Promise<
   });
 
   // The thread and the listings both show a count that just moved.
-  revalidatePath("/item");
+  // `updateTag`, not `revalidateTag`: Next 16 documents it for read-your-own-writes in a
+  // Server Action, and the person who just commented has to see their own comment.
+  updateTag(threadTag(postId));
   revalidatePath("/newest");
   revalidatePath("/");
 
-  // Anchored on the new comment, so a 350-comment thread does not reload at the top. The id on the
-  // article in `comment-node.tsx` is what makes this resolve; without it the fragment is a no-op.
-  redirect(`/item?id=${postId}#c${created.id}`);
+  // The page the comment is actually on, not page 1. A new comment scores 1 and sorts last, so on a
+  // paginated thread the author landed on a page their own comment was not on. The anchor resolves
+  // because `comment-node.tsx` puts a matching id on the article.
+  const cp = await pageOfComment(created.id, viewer.opts);
+  redirect(`/item?id=${postId}${cp > 1 ? `&cp=${cp}` : ""}#c${created.id}`);
 }

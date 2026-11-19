@@ -14,6 +14,18 @@ export const CFG = {
   /** Visual cap only; the tree is stored to unlimited depth. */
   depthCap: 8,
   /**
+   * Top-level comments rendered per page of a thread. M14's bound on thread cost.
+   *
+   * Measured on a generated 1 000-comment thread: 44.7 ms of query against a 263 ms render and
+   * 176.5 KB gz of HTML, so the render and the document — not the database — are what a huge
+   * thread costs. `depthCap` bounds how deep a page goes; this bounds how wide.
+   *
+   * 40 rather than `pageSize`'s 30: a root comment is one line plus its replies, so 40 roots is
+   * already a longer document than 30 story rows, and most threads have fewer roots than this and
+   * are unaffected.
+   */
+  rootsPerPage: 40,
+  /**
    * The reply textarea has carried `maxLength={10_000}` since M5; this is that number, named, so
    * the action and the field cannot drift. A browser's maxLength is not a limit a server may trust.
    */

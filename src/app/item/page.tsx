@@ -1,20 +1,23 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CommentTree } from "@/components/comment-node";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { Notice } from "@/components/notice";
 import { PageShell } from "@/components/page-shell";
+import { pageFromParam } from "@/components/pager";
 import { PostHeader } from "@/components/post-header";
 import { ReplyForm } from "@/components/reply-form";
+import { CFG } from "@/lib/config";
 import { formatAgeLong } from "@/lib/format";
 import { countDescendants, flatten } from "@/lib/tree";
 import type { Post } from "@/lib/types";
-import { getThread } from "@/services/comments";
+import { getThreadPage } from "@/services/comments";
 import { getPostById } from "@/services/posts";
 import { getViewer, getViewerOpts } from "@/services/viewer";
 import { getViewerFlags } from "@/services/flags";
 import { getVotes } from "@/services/votes";
 
-type Search = Promise<{ id?: string; dup?: string; confirm?: string }>;
+type Search = Promise<{ id?: string; dup?: string; confirm?: string; cp?: string }>;
 
 /**
  * A thread: the story, then its whole comment tree.
@@ -50,7 +53,11 @@ export default async function ItemPage({ searchParams }: { searchParams: Search 
 async function Thread({ searchParams }: { searchParams: Search }) {
   const [params, viewer, opts] = await Promise.all([searchParams, getViewer(), getViewerOpts()]);
   const id = Number(params.id);
-  const [post, roots] = await Promise.all([getPostById(id, opts), getThread(id, opts)]);
+  const [post, threadPage] = await Promise.all([
+    getPostById(id, opts),
+    getThreadPage(id, opts, pageFromParam(params.cp)),
+  ]);
+  const roots = threadPage.roots;
   if (!post) notFound();
 
   // Both vote overlays together: two independent reads of this viewer's own rows, so there is no
@@ -89,6 +96,12 @@ async function Thread({ searchParams }: { searchParams: Search }) {
             flagged: commentFlags,
           }} />
       </div>
+
+      {/* Only when there is more than one page, so the overwhelming majority of threads — which
+          have fewer than 40 top-level comments — show nothing new. */}
+      {threadPage.pages > 1 ? (
+        <CommentPager id={post.id} page={threadPage.page} pages={threadPage.pages} totalRoots={threadPage.totalRoots} />
+      ) : null}
     </>
   );
 }
@@ -125,7 +138,10 @@ async function ThreadAside({ searchParams }: { searchParams: Search }) {
   const id = Number(params.id);
   if (!Number.isInteger(id)) return null;
 
-  const roots = await getThread(id, opts);
+  // Page 1's roots, which is all this needs: the table below shows the first 12, and page 1 holds
+  // the first 40 in the same sibling order the thread renders. Deliberately not the current page —
+  // a contents list that only described the page you are already on would be of no use.
+  const { roots } = await getThreadPage(id, opts, 1);
   if (roots.length === 0) return null;
 
   return (
@@ -149,4 +165,46 @@ async function ThreadAside({ searchParams }: { searchParams: Search }) {
 function preview(text: string): string {
   const flat = text.replace(/[`*]/g, "").replace(/\s+/g, " ").trim();
   return flat.length > 42 ? `${flat.slice(0, 42)}…` : flat;
+}
+
+/**
+ * Top-level sibling pagination, M14's bound on how wide a thread page gets.
+ *
+ * `cp` and not `p`, so a thread's comment page cannot collide with a listing's page parameter if
+ * the two ever appear on one URL. Links rather than buttons: this is navigation, and it has to work
+ * without JavaScript like everything else here.
+ */
+function CommentPager({
+  id,
+  page,
+  pages,
+  totalRoots,
+}: {
+  id: number;
+  page: number;
+  pages: number;
+  totalRoots: number;
+}) {
+  const href = (n: number) => `/item?id=${id}&cp=${n}`;
+
+  return (
+    <nav aria-label="Comment pages" className="mt-6 flex items-baseline justify-between rule-open pt-3 type-meta text-meta">
+      <span>
+        Top-level comments {(page - 1) * CFG.rootsPerPage + 1}–
+        {Math.min(page * CFG.rootsPerPage, totalRoots)} of {totalRoots}
+      </span>
+      <span className="flex items-baseline gap-4">
+        {page > 1 ? (
+          <Link href={href(page - 1)} className="font-semibold text-petrol-ink hover:underline">
+            Previous
+          </Link>
+        ) : null}
+        {page < pages ? (
+          <Link href={href(page + 1)} className="font-semibold text-petrol-ink hover:underline">
+            Next
+          </Link>
+        ) : null}
+      </span>
+    </nav>
+  );
 }

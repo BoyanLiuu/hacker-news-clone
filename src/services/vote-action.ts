@@ -5,12 +5,13 @@
  */
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { CFG } from "@/lib/config";
 import { ItemType as DbItemType } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import type { ItemType } from "@/lib/types";
 import { decideVote } from "@/lib/vote-decision";
+import { threadTag } from "./comments";
 import { getViewer } from "./viewer";
 
 /** How long after casting you may take it back. Appendix G: a vote is otherwise final, as on HN. */
@@ -76,6 +77,8 @@ export async function castVote(_prev: VoteResult | undefined, form: FormData): P
   // and a widened `string` there does not satisfy `VoteWhereUniqueInput`.
   const itemType = input.type === "post" ? DbItemType.POST : DbItemType.COMMENT;
 
+  let threadId: number | null = null;
+
   try {
     const result = await db.$transaction(async (tx) => {
       // Locked, not just read: two clicks racing on the same row would otherwise both read the
@@ -83,6 +86,7 @@ export async function castVote(_prev: VoteResult | undefined, form: FormData): P
       // duplicate *row*, not a duplicate *increment*.
       const owner = await lockItem(tx, input.type, input.id);
       if (!owner) return { ok: false as const, error: "That item is gone." };
+      threadId = owner.postId;
 
       if (owner.authorId === viewer.userId) {
         return { ok: false as const, error: "You cannot vote for your own item." };
@@ -121,10 +125,17 @@ export async function castVote(_prev: VoteResult | undefined, form: FormData): P
     });
 
     if (result.ok) {
-      // The listing reads `RankedPost`, which the cron rebuilds on its own schedule; this only
-      // refreshes what the voter sees now. Everyone else's order stays up to 60 s stale, which
-      // ARCHITECTURE §1.2 chose deliberately and the document line reports.
-      revalidatePath(input.type === "post" ? "/" : "/item");
+      if (input.type === "post") {
+        // The listing reads `RankedPost`, which the cron rebuilds on its own schedule; this only
+        // refreshes what the voter sees now. Everyone else's order stays up to 60 s stale, which
+        // ARCHITECTURE §1.2 chose deliberately and the document line reports.
+        revalidatePath("/");
+      } else if (threadId !== null) {
+        // A comment's score drives the dim ramp and the sibling sort, so its thread's cached rows
+        // are now wrong. `revalidatePath("/item")` — the previous call — was a no-op: every route
+        // here builds dynamic, so there was no route cache to invalidate.
+        updateTag(threadTag(threadId));
+      }
     }
     return result;
   } catch (error) {
@@ -154,9 +165,12 @@ async function lockItem(
   tx: Tx,
   type: ItemType,
   id: number,
-): Promise<{ authorId: number; scoreRaw: number } | null> {
-  const rows = await tx.$queryRawUnsafe<{ authorId: number; scoreRaw: number }[]>(
-    `SELECT "authorId", "scoreRaw" FROM "hacker_news_clone"."${TABLE[type]}" WHERE id = $1 FOR UPDATE`,
+): Promise<{ authorId: number; scoreRaw: number; postId: number } | null> {
+  // A post is its own thread; a comment names one. The thread id is what the cache tag needs.
+  const thread = type === "post" ? "id" : `"postId"`;
+  const rows = await tx.$queryRawUnsafe<{ authorId: number; scoreRaw: number; postId: number }[]>(
+    `SELECT "authorId", "scoreRaw", ${thread} AS "postId"
+     FROM "hacker_news_clone"."${TABLE[type]}" WHERE id = $1 FOR UPDATE`,
     id,
   );
   return rows[0] ?? null;

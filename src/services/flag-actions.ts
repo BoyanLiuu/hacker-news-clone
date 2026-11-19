@@ -4,11 +4,12 @@
  */
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { ItemType as DbItemType } from "@/generated/prisma/enums";
 import { CFG } from "@/lib/config";
 import { db } from "@/lib/db";
+import { threadTag } from "./comments";
 import type { ItemType } from "@/lib/types";
 import { getViewer } from "./viewer";
 
@@ -58,11 +59,11 @@ export async function flagItem(_prev: FlagResult, form: FormData): Promise<FlagR
   const key = { userId_itemType_itemId: { userId: viewer.userId, itemType, itemId: input.id } };
 
   try {
-    const dead = await db.$transaction(async (tx) => {
+    const outcome = await db.$transaction(async (tx) => {
       const owner = await findOwner(tx, input.type, input.id);
-      if (!owner) return null;
+      if (!owner) return { kind: "gone" as const };
       // Flagging your own item is a request to delete it, not a moderation signal.
-      if (owner.authorId === viewer.userId) return "own" as const;
+      if (owner.authorId === viewer.userId) return { kind: "own" as const };
 
       await tx.flag.upsert({
         where: key,
@@ -73,18 +74,20 @@ export async function flagItem(_prev: FlagResult, form: FormData): Promise<FlagR
       // Counted inside the transaction, after the insert, so two simultaneous flags cannot both
       // read the pre-insert total and both decide the item is one short of dying.
       const flags = await tx.flag.count({ where: { itemType, itemId: input.id } });
-      if (flags < CFG.flagsToDie) return false;
+      if (flags < CFG.flagsToDie) return { kind: "flagged" as const, postId: owner.postId };
 
       if (input.type === "post") {
         await tx.post.update({ where: { id: input.id }, data: { isDead: true } });
       } else {
         await tx.comment.update({ where: { id: input.id }, data: { isDead: true } });
       }
-      return true;
+      return { kind: "killed" as const, postId: owner.postId };
     });
 
-    if (dead === null) return { ok: false, error: "That item is gone." };
-    if (dead === "own") return { ok: false, error: "You cannot flag your own item." };
+    if (outcome.kind === "gone") return { ok: false, error: "That item is gone." };
+    if (outcome.kind === "own") return { ok: false, error: "You cannot flag your own item." };
+
+    const dead = outcome.kind === "killed";
 
     // A dead post leaves the listings, so the ranked table has to lose it rather than wait for the
     // cron: `refresh_ranked_posts` excludes dead posts, but up to 60 s of staleness would keep a
@@ -96,7 +99,7 @@ export async function flagItem(_prev: FlagResult, form: FormData): Promise<FlagR
     // becomes "flagged", and the count moves. The listings only change when the item actually left
     // them, and `getRankedPage` is cached for every signed-out viewer, so busting it on a flag that
     // killed nothing would throw away a shared cache entry to no effect.
-    revalidatePath("/item");
+    updateTag(threadTag(outcome.postId));
     revalidatePath("/admin/flagged");
     if (dead) {
       revalidatePath("/");
@@ -133,20 +136,38 @@ export async function setDead(form: FormData): Promise<void> {
     // Killed items leave the ranked table now; the cron would otherwise keep one for up to 60 s.
     // A restored post is picked up by the next tick, which is the staleness §1.2 already accepts.
     if (dead) await db.rankedPost.deleteMany({ where: { postId: input.id } });
+    updateTag(threadTag(input.id));
   } else {
-    await db.comment.update({ where: { id: input.id }, data: { isDead: dead } });
+    const comment = await db.comment.update({
+      where: { id: input.id },
+      data: { isDead: dead },
+      select: { postId: true },
+    });
+    // The thread's cached rows are now wrong. Without this a killed comment stayed visible to every
+    // signed-out reader, because the cache has no interval of its own to fall back on.
+    updateTag(threadTag(comment.postId));
   }
 
   revalidatePath("/");
   revalidatePath("/newest");
-  revalidatePath("/item");
   revalidatePath("/admin/flagged");
   redirect("/admin/flagged");
 }
 
 type Tx = Parameters<Parameters<typeof db.$transaction>[0]>[0];
 
-async function findOwner(tx: Tx, type: ItemType, id: number): Promise<{ authorId: number } | null> {
-  if (type === "post") return tx.post.findUnique({ where: { id }, select: { authorId: true } });
-  return tx.comment.findUnique({ where: { id }, select: { authorId: true } });
+/**
+ * Who owns the item, and which thread it belongs to. The thread id is what the cache tag needs, and
+ * for a comment that is its post rather than itself.
+ */
+async function findOwner(
+  tx: Tx,
+  type: ItemType,
+  id: number,
+): Promise<{ authorId: number; postId: number } | null> {
+  if (type === "post") {
+    const post = await tx.post.findUnique({ where: { id }, select: { authorId: true } });
+    return post ? { authorId: post.authorId, postId: id } : null;
+  }
+  return tx.comment.findUnique({ where: { id }, select: { authorId: true, postId: true } });
 }
