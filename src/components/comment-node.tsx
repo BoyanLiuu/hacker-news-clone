@@ -5,7 +5,8 @@ import { countDescendants } from "@/lib/tree";
 import type { CommentNode as Node } from "@/lib/types";
 import { CollapseToggle } from "./collapse-toggle";
 import { CommentBody } from "./comment-body";
-import { DownVoteButton, VoteButton } from "./vote-button";
+import { CommentVotes } from "./comment-votes";
+import { dimFor } from "@/lib/dim";
 
 type Ctx = {
   /** The post's author, so their replies get the OP chip. */
@@ -22,6 +23,8 @@ type Ctx = {
   isModerator: boolean;
   /** Depth the rendering started at, so a permalink view does not re-cap immediately. */
   baseDepth: number;
+  /** This viewer's standing votes on the comments in this thread, by comment id. */
+  voted: ReadonlyMap<number, 1 | -1>;
 };
 
 /**
@@ -56,10 +59,14 @@ function CommentArticle({ node, ctx }: { node: Node; ctx: Ctx }) {
         {/* The vote column hides when collapsed — you cannot vote on what you cannot read. */}
         <div className="collapsible flex w-[26px] shrink-0 flex-col items-center">
           {deleted ? null : (
-            <>
-              <VoteButton label={`comment by ${node.author}`} own={own} />
-              {ctx.canDownvote && !own ? <DownVoteButton label={`comment by ${node.author}`} /> : null}
-            </>
+            <CommentVotes
+              id={node.id}
+              author={node.author}
+              own={own}
+              canDownvote={ctx.canDownvote}
+              signedIn={ctx.viewerName !== null}
+              voted={ctx.voted.get(node.id)}
+            />
           )}
         </div>
 
@@ -102,7 +109,7 @@ function CommentArticle({ node, ctx }: { node: Node; ctx: Ctx }) {
           </div>
 
           <div className="collapsible">
-            {deleted ? null : <CommentBody text={node.text} className="mt-1" />}
+            {deleted ? null : <CommentBody text={node.text} className={`mt-1 ${dimFor(node.scoreRaw)}`} />}
 
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 type-meta text-meta">
               <Link href={`/reply?id=${node.id}`} className="hover:underline">

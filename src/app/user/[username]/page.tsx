@@ -4,7 +4,7 @@ import { CommentBody } from "@/components/comment-body";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { StoryList } from "@/components/story-list";
-import { toRows } from "@/components/story-row";
+import { toRows } from "@/lib/rows";
 import { Tabs } from "@/components/tabs";
 import { formatAgeLong, formatCount } from "@/lib/format";
 import { getCommentsByAuthor } from "@/services/comments";

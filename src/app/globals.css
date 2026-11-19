@@ -272,12 +272,18 @@ li[data-vote] {
    introducing a colour: tint while the vote stands, well once it is undone. The fill is the signal
    either way — and the score beside it does not tween, it steps with the rest of the row. */
 [data-vote="pending"] .vote-glyph,
-[data-vote="confirmed"] .vote-glyph {
+[data-vote="confirmed"] .vote-glyph,
+[data-vote="standing"] .vote-glyph {
   fill: var(--color-petrol);
   stroke: var(--color-petrol);
 }
+/* `standing` is M11's addition: a vote cast in an earlier session. The glyph above fills, and the
+   pad tints, exactly as a fresh vote does — but the row wash below deliberately does not apply, or
+   every story you had ever upvoted would light up as though you had just clicked it. The wash means
+   "you acted on this row just now"; the filled glyph means "your vote is on this". */
 [data-vote="pending"] .vote-pad,
-[data-vote="confirmed"] .vote-pad {
+[data-vote="confirmed"] .vote-pad,
+[data-vote="standing"] .vote-pad {
   /* DESIGN.md gives hover a "7% petrol wash"; pressed is the same wash, stronger. Extending the
      rule the design states beats inventing a tint, and it stays legible against the row's own. */
   background-color: --alpha(var(--color-petrol) / 15%);

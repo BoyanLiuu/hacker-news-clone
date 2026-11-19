@@ -6,10 +6,11 @@ import { DatasheetTable } from "@/components/datasheet-table";
 import { PageShell } from "@/components/page-shell";
 import { ReplyForm } from "@/components/reply-form";
 import { formatAgeLong } from "@/lib/format";
-import { countDescendants } from "@/lib/tree";
+import { countDescendants, flatten } from "@/lib/tree";
 import { getSubtree } from "@/services/comments";
 import { getPostById } from "@/services/posts";
 import { getViewer, getViewerOpts } from "@/services/viewer";
+import { getVotes } from "@/services/votes";
 
 type Search = Promise<{ id?: string }>;
 
@@ -45,7 +46,11 @@ async function Permalink({ searchParams }: { searchParams: Search }) {
   if (!found) notFound();
 
   const { ancestors, node } = found;
-  const post = await getPostById(node.postId, opts);
+  // Independent of each other, so one round trip rather than two — the subtree is already loaded.
+  const [post, commentVotes] = await Promise.all([
+    getPostById(node.postId, opts),
+    getVotes("comment", flatten([node]).map((n) => n.id)),
+  ]);
 
   return (
     <>
@@ -82,6 +87,7 @@ async function Permalink({ searchParams }: { searchParams: Search }) {
             canDownvote: viewer?.canDownvote ?? false,
             canFlag: viewer?.canFlag ?? false,
             isModerator: opts.isModerator,
+            voted: commentVotes,
           }}
         />
       </div>

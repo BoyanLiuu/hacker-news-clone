@@ -1,78 +1,56 @@
+"use client";
+
 import Link from "next/link";
-import { formatAge, formatCount } from "@/lib/format";
-import type { Post } from "@/lib/types";
-import { VoteButton } from "./vote-button";
+import { useActionState } from "react";
+import { formatAge, formatCount, formatUtcTime } from "@/lib/format";
+import type { StoryRowData } from "@/lib/rows";
+import { castVote } from "@/services/vote-action";
+import { OwnItemMark, SignInArrow, VoteForm, voteState } from "./vote-button";
 
 /**
  * One ranked-list row, two lines on the five-track grid.
  *
- * Every listing uses this unchanged — /, /newest, /from and /front/:date differ only in the order
- * they pass rows in and which points value they pass, so the row needs no variants and no boolean
- * modes. `points` is separate from `post.scoreRaw` because a past front page shows back-projected
- * points for that day.
+ * Every listing uses this unchanged — /, /newest and /from differ only in the order they pass rows
+ * in and which points value they pass, so the row needs no variants and no boolean modes.
+ *
+ * A client component since M11, which is a deliberate reversal: M6 kept the whole listing
+ * server-rendered and said so. The reason is `data-vote`, which DESIGN.md puts on the row — the
+ * wash covers the whole line, not the glyph — and an attribute on the `<li>` can only be set by
+ * whoever renders the `<li>`. The cost was measured rather than assumed: see the commit.
  */
-export type StoryRowData = {
-  rank: number;
-  points: number;
-  post: Post;
-};
-
-/**
- * What a vote looks like mid-flight, settled, or undone. Presentation only: every visual is CSS
- * keyed on `data-vote` (globals.css), and `points` above is whatever should be shown — the caller
- * owns the optimistic arithmetic, because M11's `useOptimistic` is the thing that will own it.
- */
-export type VoteState = {
-  state: "pending" | "confirmed" | "failed";
-  /** `hh:mm:ss`, formatted on the server. The confirmed stamp; absent in the other two states. */
-  savedAt?: string;
-  /**
-   * Where `Retry` goes, for the `failed` state. Supplied by the caller because the row does not know
-   * which listing it is on, the same reason it does not do the optimistic arithmetic.
-   *
-   * It is a link and not a span because the design underlines it, and in this design an underline
-   * means a control. An underlined word that does nothing is worse than no word: every other
-   * not-yet-wired affordance here — `flag`, `edit`, `unvote` — is a bare span precisely so it does
-   * not promise a click. M11 makes this the form submit that re-posts the vote.
-   */
-  retryHref?: string;
-};
-
-/**
- * Numbers rows continuously across pages, so page 2 starts at 31 rather than 1. Every listing needs
- * this and they had each been doing the arithmetic inline.
- */
-export function toRows<T>(
-  items: readonly T[],
-  { page, pageSize }: { page: number; pageSize: number },
-  unpack: (item: T) => { points: number; post: Post },
-): StoryRowData[] {
-  return items.map((item, i) => ({ rank: (page - 1) * pageSize + i + 1, ...unpack(item) }));
-}
-
 export function StoryRow({
   rank,
   points,
   post,
   viewerName,
   canFlag,
-  vote,
+  voted,
 }: StoryRowData & {
   viewerName: string | null;
   /** New accounts cannot flag, so the control is not offered — the same rule the thread applies. */
   canFlag: boolean;
-  vote?: VoteState;
+  /** This viewer's standing vote on this post, loaded with the page. Posts take upvotes only. */
+  voted?: boolean;
 }) {
+  const [result, voteAction, pending] = useActionState(castVote, undefined);
+
   const own = viewerName !== null && post.author === viewerName;
-  const voted = vote?.state === "pending" || vote?.state === "confirmed";
   // Dead rows dim their title and figures to dim3; everything else keeps its normal ink.
   const dead = post.isDead;
   const titleInk = dead ? "text-dim-3" : "text-ink";
   const metaInk = dead ? "text-dim-3" : "text-meta";
 
+  // `standing` is the state M6's URL preview could not express: a vote from an earlier session,
+  // which fills its glyph without washing the row. See `voteState`.
+  const state = voteState({ pending, result, voted: Boolean(voted) });
+
+  // The server's number is authoritative once it answers; `points` is the page's own read.
+  const shown = result?.ok ? result.points : points;
+  const stillVoted = result?.ok ? result.voted : voted;
+
   return (
     <li
-      data-vote={vote?.state}
+      data-vote={state}
       className="grid grid-cols-[26px_28px_1fr] items-start gap-x-3 px-1 py-[7px] rule-divide hover:bg-hover focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-petrol sm:grid-cols-[30px_70px_1fr_52px_74px]"
     >
       <span className={`type-meta pt-[3px] text-right ${metaInk}`}>{rank}</span>
@@ -80,12 +58,27 @@ export function StoryRow({
       {/* The vote control and the count share one track on desktop; the count moves to the meta
           line on phones, where the track is only wide enough for the button. */}
       <span className="flex items-start gap-2 sm:justify-end">
-        <VoteButton label={post.title} own={own} />
-        <span
-          className={`vote-points hidden pt-[4px] text-right text-[15px] font-semibold tabular-nums sm:block ${titleInk}`}
-        >
-          {formatCount(points)}
-        </span>
+        {own || viewerName === null ? (
+          <>
+            {own ? <OwnItemMark /> : <SignInArrow label={post.title} />}
+            <span
+              className={`vote-points hidden pt-[4px] text-right text-[15px] font-semibold tabular-nums sm:block ${titleInk}`}
+            >
+              {formatCount(shown)}
+            </span>
+          </>
+        ) : (
+          <VoteForm
+            type="post"
+            id={post.id}
+            label={post.title}
+            direction={1}
+            action={voteAction}
+            points={shown}
+            format={formatCount}
+            tone={titleInk}
+          />
+        )}
       </span>
 
       <span className="min-w-0">
@@ -97,10 +90,7 @@ export function StoryRow({
               {post.title}
             </a>
           ) : (
-            <Link
-              href={`/item?id=${post.id}`}
-              className={`${titleInk} visited:text-visited`}
-            >
+            <Link href={`/item?id=${post.id}`} className={`${titleInk} visited:text-visited`}>
               {post.title}
             </Link>
           )}
@@ -130,7 +120,7 @@ export function StoryRow({
             )}
           </span>
           <span className="sm:hidden">
-            <span className="vote-points">{formatCount(points)}</span> points
+            <span className="vote-points">{formatCount(shown)}</span> points
           </span>
           <span className="sm:hidden">{formatAge(post.createdAt)}</span>
           <span className="sm:hidden">
@@ -145,21 +135,23 @@ export function StoryRow({
               replied, removing it would take their comment with it. Debrief §1. */}
           {own && post.commentCount === 0 ? <span>delete</span> : null}
 
-          {/* Undoing is offered the moment the vote shows, not after it settles — the whole point
-              of an optimistic update is that the row is already acting as though it worked. */}
-          {voted ? <span>unvote</span> : null}
+          {/* Undoing posts the same arrow again, which the action reads as taking the vote back
+              while the grace window is open. A second form, because it is a second submission. */}
+          {stillVoted && !own && viewerName !== null ? (
+            <UnvoteForm postId={post.id} title={post.title} action={voteAction} />
+          ) : null}
 
           {/* The receipt. Mono, because it is a machine fact and the only timestamp in a row. */}
-          {vote?.state === "confirmed" && vote.savedAt ? (
+          {result?.ok && result.voted ? (
             <span className="rounded-hair bg-tint px-[5px] font-mono text-[11.5px] text-petrol-ink">
-              saved {vote.savedAt}
+              saved {formatUtcTime(new Date(result.savedAt))}
             </span>
           ) : null}
         </span>
 
         {/* Rollback sits under the byline rather than replacing anything: the row has gone back to
             the number it had, so the only new information is why, and what to do about it. */}
-        {vote?.state === "failed" ? (
+        {result && !result.ok ? (
           <p role="alert" className="mt-[6px] flex flex-wrap items-baseline gap-x-[6px] type-meta text-amber">
             <span aria-hidden="true" className="translate-y-[2px]">
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -168,17 +160,8 @@ export function StoryRow({
                 <circle cx="8" cy="11.6" r="0.7" fill="currentColor" stroke="none" />
               </svg>
             </span>
-            <span>
-              Vote not saved — the server didn&rsquo;t answer. Your vote was undone.
-            </span>
-            {vote.retryHref ? (
-              <Link
-                href={vote.retryHref}
-                className="font-semibold text-amber underline underline-offset-2"
-              >
-                Retry
-              </Link>
-            ) : null}
+            <span>{result.error} Your vote was undone.</span>
+            <RetryForm postId={post.id} title={post.title} action={voteAction} />
           </p>
         ) : null}
       </span>
@@ -193,5 +176,58 @@ export function StoryRow({
         </Link>
       </span>
     </li>
+  );
+}
+
+/** A bare submit styled as the meta-line text around it, so the row keeps one voice. */
+function MetaSubmit({ children, label }: { children: string; label: string }) {
+  return (
+    <button type="submit" aria-label={label} className="underline-offset-2 hover:underline">
+      {children}
+    </button>
+  );
+}
+
+function UnvoteForm({
+  postId,
+  title,
+  action,
+}: {
+  postId: number;
+  title: string;
+  action: (form: FormData) => void;
+}) {
+  return (
+    <form action={action} className="contents">
+      <input type="hidden" name="type" value="post" />
+      <input type="hidden" name="id" value={postId} />
+      <input type="hidden" name="direction" value={1} />
+      <MetaSubmit label={`Remove your upvote from ${title}`}>unvote</MetaSubmit>
+    </form>
+  );
+}
+
+function RetryForm({
+  postId,
+  title,
+  action,
+}: {
+  postId: number;
+  title: string;
+  action: (form: FormData) => void;
+}) {
+  return (
+    <form action={action} className="contents">
+      <input type="hidden" name="type" value="post" />
+      <input type="hidden" name="id" value={postId} />
+      <input type="hidden" name="direction" value={1} />
+      <button
+        type="submit"
+        className="font-semibold text-amber underline underline-offset-2"
+        aria-label={`Retry voting on ${title}`}
+      >
+        Retry
+      </button>
+    </form>
   );
 }

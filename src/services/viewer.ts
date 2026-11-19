@@ -16,6 +16,12 @@ export const SLOW_COOKIE = "tally-slow-motion";
  */
 export type Viewer = {
   user: User;
+  /**
+   * The database key, beside `user` rather than inside it. `Vote` and `Flag` are keyed on the
+   * numeric id, but the service contract names people by username everywhere else (Appendix C), and
+   * putting an integer id on `User` would invite it into URLs and bylines where it does not belong.
+   */
+  userId: number;
   opts: ViewerOpts;
   accountAgeDays: number;
   /** New accounts cannot flag or downvote — debrief §6. */
@@ -25,6 +31,7 @@ export type Viewer = {
 };
 
 type UserRow = {
+  id: number;
   username: string;
   about: string;
   karma: number;
@@ -35,6 +42,7 @@ type UserRow = {
 };
 
 const SELECT = {
+  id: true,
   username: true,
   about: true,
   karma: true,
@@ -85,6 +93,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
 
   return {
     user,
+    userId: row.id,
     opts: { userId: user.username, isModerator: user.isModerator, showDead: user.showDead },
     accountAgeDays,
     isNewAccount: !established,

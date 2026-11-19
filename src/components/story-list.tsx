@@ -1,4 +1,5 @@
-import { StoryRow, type StoryRowData, type VoteState } from "./story-row";
+import type { StoryRowData } from "@/lib/rows";
+import { StoryRow } from "./story-row";
 
 /** The five-track grid, shared by the head band, the rows and the skeleton so nothing shifts. */
 const TRACKS =
@@ -29,16 +30,16 @@ export function StoryList({
   rows,
   viewerName,
   canFlag,
-  vote,
+  voted,
 }: {
   rows: StoryRowData[];
   viewerName: string | null;
   canFlag: boolean;
   /**
-   * Which row is showing a vote state, and which. One row at a time, because that is what a vote
-   * is — M11 will key this off the row the viewer actually clicked.
+   * The post ids this viewer has already upvoted. One query for the whole page rather than a column
+   * on the listing read, so the cached ranking stays the same bytes for everyone — ARCHITECTURE §5.
    */
-  vote?: { rank: number; state: VoteState };
+  voted?: ReadonlySet<number>;
 }) {
   return (
     <div className="mt-4 rule-open">
@@ -51,7 +52,7 @@ export function StoryList({
             {...row}
             viewerName={viewerName}
             canFlag={canFlag}
-            vote={vote?.rank === row.rank ? vote.state : undefined}
+            voted={voted?.has(row.post.id)}
           />
         ))}
       </ol>

@@ -17,7 +17,14 @@ export const CFG = {
   dupDays: 14,
   editMinutes: 120,
   flagsToDie: 5,
-  /** Open question: karma-gated downvotes, or none at all. */
+  /**
+   * Resolved in M11: karma-gated comment downvotes, HN's model. Posts take upvotes only.
+   *
+   * No account can reach this yet. Karma counts votes cast on Tally, and the HN import brought no
+   * vote history, so every imported account sits at 0 — the control is enforced and correct, and
+   * invisible until the site has traffic. Lowering it would make the feature demonstrable and the
+   * moderation model a fiction; the number stays honest.
+   */
   downvoteKarma: 500,
   flagMinDays: 30,
   flagMinKarma: 30,

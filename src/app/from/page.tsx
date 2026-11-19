@@ -4,10 +4,11 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { OutOfRange, Pager, pageFromParam, pageOutOfRange } from "@/components/pager";
 import { StoryList, StoryListSkeleton } from "@/components/story-list";
-import { toRows } from "@/components/story-row";
+import { toRows } from "@/lib/rows";
 import { registrableDomain } from "@/lib/domain";
 import { getPostsByDomain } from "@/services/posts";
 import { getViewer, getViewerOpts } from "@/services/viewer";
+import { getVotes } from "@/services/votes";
 
 type Search = Promise<{ site?: string; p?: string }>;
 
@@ -78,10 +79,19 @@ async function DomainColumn({ searchParams }: { searchParams: Search }) {
 
   const rows = toRows(listing.items, listing, (post) => ({ points: post.scoreRaw, post }));
 
+  // This viewer's standing votes on the ids shown, so an already-upvoted row arrives with its glyph
+  // filled. Separate from the listing read, which is identical for every viewer.
+  const voted = await getVotes("post", rows.map((row) => row.post.id));
+
   return (
     <>
       <PageHead title={site} />
-      <StoryList rows={rows} viewerName={opts.userId} canFlag={viewer?.canFlag ?? false} />
+      <StoryList
+        rows={rows}
+        viewerName={opts.userId}
+        canFlag={viewer?.canFlag ?? false}
+        voted={new Set(voted.keys())}
+      />
       <Pager page={listing} basePath="/from" query={{ site }} />
     </>
   );

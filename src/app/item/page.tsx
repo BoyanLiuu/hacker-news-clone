@@ -7,11 +7,12 @@ import { PageShell } from "@/components/page-shell";
 import { PostHeader } from "@/components/post-header";
 import { ReplyForm } from "@/components/reply-form";
 import { formatAgeLong } from "@/lib/format";
-import { countDescendants } from "@/lib/tree";
+import { countDescendants, flatten } from "@/lib/tree";
 import type { Post } from "@/lib/types";
 import { getThread } from "@/services/comments";
 import { getPostById } from "@/services/posts";
 import { getViewer, getViewerOpts } from "@/services/viewer";
+import { getVotes } from "@/services/votes";
 
 type Search = Promise<{ id?: string; dup?: string; confirm?: string }>;
 
@@ -52,6 +53,14 @@ async function Thread({ searchParams }: { searchParams: Search }) {
   const [post, roots] = await Promise.all([getPostById(id, opts), getThread(id, opts)]);
   if (!post) notFound();
 
+  // Both vote overlays together: two independent reads of this viewer's own rows, so there is no
+  // reason to pay two round trips for them. Kept out of `getThread` so its result stays identical
+  // for every viewer — ARCHITECTURE §5.
+  const [postVotes, commentVotes] = await Promise.all([
+    getVotes("post", [post.id]),
+    getVotes("comment", flatten(roots).map((node) => node.id)),
+  ]);
+
   return (
     <>
       {params.dup === "1" ? <DuplicateNotice post={post} /> : null}
@@ -61,6 +70,7 @@ async function Thread({ searchParams }: { searchParams: Search }) {
         viewerName={opts.userId}
         canFlag={viewer?.canFlag ?? false}
         confirmingDelete={params.confirm === "delete"}
+        voted={postVotes.has(post.id)}
       />
       <ReplyForm targetId={post.id} />
       <div className="mt-6">
@@ -71,6 +81,7 @@ async function Thread({ searchParams }: { searchParams: Search }) {
             canDownvote: viewer?.canDownvote ?? false,
             canFlag: viewer?.canFlag ?? false,
             isModerator: opts.isModerator,
+            voted: commentVotes,
           }} />
       </div>
     </>

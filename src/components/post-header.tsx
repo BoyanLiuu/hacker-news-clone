@@ -4,7 +4,7 @@ import { formatAgeLong, formatCount, formatMinutesLeft } from "@/lib/format";
 import type { Post } from "@/lib/types";
 import { CommentBody } from "./comment-body";
 import { DeleteConfirm } from "./delete-confirm";
-import { VoteButton } from "./vote-button";
+import { PostVotes } from "./post-votes";
 
 /**
  * The story at the top of a thread: headline at 24 px, the domain inline, then one meta line of
@@ -15,12 +15,15 @@ export function PostHeader({
   viewerName,
   canFlag,
   confirmingDelete = false,
+  voted = false,
 }: {
   post: Post;
   viewerName: string | null;
   /** New accounts cannot flag, so the control is not offered — debrief §6, via `getViewer`. */
   canFlag: boolean;
   confirmingDelete?: boolean;
+  /** This viewer's standing upvote on this post. */
+  voted?: boolean;
 }) {
   const own = viewerName !== null && post.author === viewerName;
   const editLeft = own ? formatMinutesLeft(new Date(post.createdAt.getTime() + CFG.editMinutes * MINUTE)) : null;
@@ -32,7 +35,7 @@ export function PostHeader({
     <header className="rule-close pb-4">
       <div className="flex items-start gap-3">
         <div className="shrink-0 pt-1">
-          <VoteButton label={post.title} own={own} />
+          <PostVotes id={post.id} title={post.title} own={own} signedIn={viewerName !== null} voted={voted} />
         </div>
 
         <div className="min-w-0">

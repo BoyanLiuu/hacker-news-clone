@@ -1,17 +1,29 @@
-import { NotImplementedInStaticPhase, type ItemType } from "@/lib/types";
+import { db } from "@/lib/db";
+import type { ItemType } from "@/lib/types";
+import { getViewer } from "./viewer";
 
 /**
- * Nothing to read here in phase 1: no vote can be cast, so no vote exists. Declared so M2's vote
- * button is written against the signature it will keep.
+ * Which items this viewer has voted on, and which way — the thin per-user overlay from
+ * ARCHITECTURE §5, kept out of the cached listing read so one cache entry serves everyone.
  *
- * In phase 2 this is idempotent on the composite key (userId, itemType, itemId) — see
- * ARCHITECTURE §6.4. The acting user comes from the session, never from an argument.
+ * One query per page, not per row: the primary key leads with `userId`, so this is an index scan
+ * over just this person's votes. Returned as a Map because a listing asks about 30 ids and a
+ * thread about hundreds.
  */
-export async function vote(_item: { type: ItemType; id: number }, _direction: 1 | -1): Promise<void> {
-  throw new NotImplementedInStaticPhase("vote");
-}
+export async function getVotes(type: ItemType, ids: readonly number[]): Promise<Map<number, 1 | -1>> {
+  if (ids.length === 0) return new Map();
 
-/** Which items this viewer has voted on — the thin per-user overlay from ARCHITECTURE §5. */
-export async function getVotedItemIds(_type: ItemType): Promise<Set<number>> {
-  return new Set();
+  const viewer = await getViewer();
+  if (!viewer) return new Map();
+
+  const rows = await db.vote.findMany({
+    where: {
+      userId: viewer.userId,
+      itemType: type === "post" ? "POST" : "COMMENT",
+      itemId: { in: [...ids] },
+    },
+    select: { itemId: true, value: true },
+  });
+
+  return new Map(rows.map((r) => [r.itemId, r.value === -1 ? -1 : 1]));
 }

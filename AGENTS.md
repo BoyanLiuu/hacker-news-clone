@@ -56,3 +56,18 @@ Both JS and HTML budgets in the architecture are stated as measured-over-the-wir
 estimate was wrong by 11x once already. A refactor that claims to shrink the bundle states the before
 and after from a real build. Two such refactors in M3 measured *worse* than the code they replaced and
 were reverted.
+
+### A non-component export from a `"use client"` module is a client *reference*
+
+Calling one on the server throws `Attempted to call X() from the server`, and nothing catches it
+first: `tsc`, `eslint` and `next build` all pass, because the failure is a runtime one. M5 lost a
+page to it when `TITLE_MAX` came from a client module and rendered as the stub's source text. M11
+lost *every listing* to it when `story-row.tsx` gained `"use client"` and took the pure `toRows()`
+helper with it — the front page served 30 skeleton bars and a clean build.
+
+So when a component becomes `"use client"`, move its non-component exports out first. Types are
+fine; values and functions are not. `src/lib/rows.ts` exists for exactly this reason.
+
+And verify a listing by counting rows in the served HTML, not by reading the build log:
+
+    curl -s localhost:PORT/ | grep -c '<li class="grid'
