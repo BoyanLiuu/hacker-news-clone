@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" role="img" aria-labelledby="t d">
+  <title id="t">ByteBoard — a link aggregator whose front page is a computed ordering</title>
+  <desc id="d">The ByteBoard title block above a two-row datasheet: rank 1 holds 830 points at 17 hours old, rank 11 holds 2,349 points at 3 days old, because the ordering is a time-decay score computed in Postgres rather than a points sort.</desc>
+
+  <rect width="1200" height="400" fill="#fcfcfa"/>
+
+  <!-- The app's own title block: a 64-unit petrol-tint band closed by a tint rule. -->
+  <rect width="1200" height="64" fill="#e4eeee"/>
+  <rect y="62.5" width="1200" height="1.5" fill="#a9c7c9"/>
+
+  <rect x="40" y="19" width="26" height="26" rx="3" fill="none" stroke="#00646e" stroke-width="2"/>
+  <path d="M47.8 37.2 L58.2 26.8" stroke="#00646e" stroke-width="2" stroke-linecap="square"/>
+  <path d="M53.65 26.8 H58.2 V31.35" stroke="#00646e" stroke-width="2" stroke-linecap="square" fill="none"/>
+
+  <text x="80" y="42" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="29" font-weight="750" fill="#15171a" letter-spacing="-0.3">ByteBoard</text>
+  <text x="1160" y="41" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#565c63">hacker-news-clone-pi.vercel.app</text>
+
+  <text x="40" y="112" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="600" fill="#00646e" letter-spacing="1.6">LINK AGGREGATOR</text>
+
+  <text x="40" y="164" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="41" font-weight="700" fill="#15171a" letter-spacing="-0.6">The front page is a computed ordering,</text>
+  <text x="40" y="212" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="41" font-weight="700" fill="#565c63" letter-spacing="-0.6">stated as fact.</text>
+
+  <!-- The proof, in the project's native shape: ruled rows, right-aligned tabular figures.
+       These two rows are real and adjacent on the live front page. -->
+  <rect x="40" y="252" width="1120" height="1.5" fill="#15171a"/>
+
+  <text x="56" y="277" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" font-weight="600" fill="#3a3f46">#</text>
+  <text x="258" y="277" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" font-weight="600" fill="#3a3f46">POINTS</text>
+  <text x="400" y="277" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" font-weight="600" fill="#3a3f46">AGE</text>
+
+  <rect x="40" y="288" width="1120" height="1" fill="#e4e7e9"/>
+
+  <text x="56" y="320" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" fill="#565c63">1</text>
+  <text x="258" y="320" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="27" font-weight="600" fill="#15171a">830</text>
+  <text x="400" y="320" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" fill="#565c63">17 h</text>
+
+  <rect x="40" y="334" width="1120" height="1" fill="#e4e7e9"/>
+
+  <text x="56" y="366" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" fill="#565c63">11</text>
+  <text x="258" y="366" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="27" font-weight="600" fill="#15171a">2,349</text>
+  <text x="400" y="366" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" fill="#565c63">3 d</text>
+
+  <!-- A single tie rule spanning both rows, so the annotation reads as a consequence of the pair.
+       A bracket shape was tried here and rendered as a stray tick at GitHub width. -->
+  <rect x="434" y="298" width="1.5" height="58" fill="#a9c7c9"/>
+  <text x="458" y="320" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="25" font-weight="650" fill="#00646e">830 points outranks 2,349.</text>
+  <text x="458" y="358" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" fill="#565c63">Age is in the denominator, and the sort is an index scan.</text>
+
+  <!-- The app closes every ruled list with a 1px ink rule; the hero borrows that full stop. -->
+  <rect x="40" y="382" width="1120" height="1" fill="#15171a"/>
+</svg>
