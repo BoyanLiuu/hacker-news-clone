@@ -1,0 +1,11 @@
+-- RLS on RateHit, matching every other table in this schema (see the init migration).
+--
+-- A separate migration rather than an edit to 20261119020000: that one had already been applied,
+-- and Prisma stores a checksum of each applied migration, so editing the file in place both fails
+-- to run and breaks `migrate deploy` on the next clone. The table shipped without RLS for one
+-- migration; prisma/schema.test.ts failed on it, which is the test doing its job.
+--
+-- No policies, like the rest: the app connects as the owner and is unaffected. This is a backstop
+-- against a leaked anon key, not the authorization model — ownership checks are explicit filters
+-- in the service layer (ARCHITECTURE Appendix D).
+ALTER TABLE "hacker_news_clone"."RateHit" ENABLE ROW LEVEL SECURITY;

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 import { CommentTree } from "@/components/comment-node";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { Notice } from "@/components/notice";
@@ -40,9 +39,9 @@ export default async function ItemPage({ searchParams }: { searchParams: Search 
       section={searchParams.then((p) => (p.id ? `item ${p.id}` : "item"))}
       aside={<ThreadAside searchParams={searchParams} />}
     >
-      <Suspense fallback={<p className="type-meta text-meta">Loading the thread…</p>}>
-        <Thread searchParams={searchParams} />
-      </Suspense>
+      {/* Awaited, not streamed: the thread holds the post's vote arrow and the reply box, and a
+          Suspense boundary would put both inside a `<div hidden>` that only JavaScript opens. */}
+      <Thread searchParams={searchParams} />
     </PageShell>
   );
 }

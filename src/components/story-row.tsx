@@ -25,12 +25,15 @@ export function StoryRow({
   viewerName,
   canFlag,
   voted,
+  canEdit,
 }: StoryRowData & {
   viewerName: string | null;
   /** New accounts cannot flag, so the control is not offered — the same rule the thread applies. */
   canFlag: boolean;
   /** This viewer's standing vote on this post, loaded with the page. Posts take upvotes only. */
   voted?: boolean;
+  /** Whether the edit window is still open, decided by the server rather than read off the clock. */
+  canEdit?: boolean;
 }) {
   const [result, voteAction, pending] = useActionState(castVote, undefined);
 
@@ -129,7 +132,14 @@ export function StoryRow({
               : `${formatCount(post.commentCount)} ${post.commentCount === 1 ? "comment" : "comments"}`}
           </span>
           {dead ? <span className="text-red">dead</span> : null}
-          {own ? <span>edit</span> : null}
+          {/* A link only while the window is open; the thread's header shows the countdown and
+              the action re-checks the window regardless. `canEdit` is decided on the server — see
+              `editWindow` for why a component must not read the clock itself. */}
+          {own && canEdit ? (
+            <Link href={`/edit?id=${post.id}`} className="hover:underline">
+              edit
+            </Link>
+          ) : null}
           {!own && canFlag ? <span>flag</span> : null}
           {/* Delete is offered only while nothing is attached to the post — once someone has
               replied, removing it would take their comment with it. Debrief §1. */}

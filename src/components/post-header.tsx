@@ -76,10 +76,14 @@ export function PostHeader({
             </span>
             <span>{formatAgeLong(post.createdAt)}</span>
 
-            {own ? (
-              // The window is stated rather than discovered, so you know before you start typing.
-              <span>{editLeft ? `edit (${editLeft})` : "edit closed"}</span>
+            {/* The window is stated rather than discovered, so you know before you start typing —
+                and it stops being a link once it closes, because an underline promises a click. */}
+            {own && editLeft ? (
+              <Link href={`/edit?id=${post.id}`} className="hover:underline">
+                edit ({editLeft})
+              </Link>
             ) : null}
+            {own && !editLeft ? <span>edit closed</span> : null}
             {canDelete ? (
               <Link
                 href={`/item?id=${post.id}&confirm=delete`}

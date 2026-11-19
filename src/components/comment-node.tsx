@@ -54,7 +54,7 @@ function CommentArticle({ node, ctx }: { node: Node; ctx: Ctx }) {
   // A deleted comment with replies stays as [deleted] so its children survive; a childless one
   // would be removed at the source. Debrief §3.
   return (
-    <article data-comment={node.id} className="comment-row pt-3">
+    <article id={`c${node.id}`} data-comment={node.id} className="comment-row pt-3">
       <div className="flex items-start gap-2">
         {/* The vote column hides when collapsed — you cannot vote on what you cannot read. */}
         <div className="collapsible flex w-[26px] shrink-0 flex-col items-center">

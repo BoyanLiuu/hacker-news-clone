@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 import { CommentTree } from "@/components/comment-node";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { PageShell } from "@/components/page-shell";
@@ -32,9 +31,8 @@ export default async function ReplyPage({ searchParams }: { searchParams: Search
       section={searchParams.then((p) => (p.id ? `comment ${p.id}` : "comment"))}
       aside={<PermalinkAside searchParams={searchParams} />}
     >
-      <Suspense fallback={<p className="type-meta text-meta">Loading the comment…</p>}>
-        <Permalink searchParams={searchParams} />
-      </Suspense>
+      {/* Awaited for the same reason as the thread: this page is mostly a reply form. */}
+      <Permalink searchParams={searchParams} />
     </PageShell>
   );
 }
@@ -92,7 +90,7 @@ async function Permalink({ searchParams }: { searchParams: Search }) {
         />
       </div>
 
-      <ReplyForm targetId={node.id} label="Reply to this comment" submit="Reply" />
+      <ReplyForm targetId={node.id} kind="comment" label="Reply to this comment" submit="Reply" />
     </>
   );
 }

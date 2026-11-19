@@ -1,4 +1,4 @@
-import { cache, Suspense } from "react";
+import { cache } from "react";
 import { DatasheetTable } from "@/components/datasheet-table";
 import { Notice } from "@/components/notice";
 import { PageHead, PageShell } from "@/components/page-shell";
@@ -14,7 +14,12 @@ type Search = Promise<{ limited?: string }>;
 /**
  * A link or a text post, never both. The rules sit beside the form rather than being discovered.
  *
- * The gate runs in the page body, not inside the `Suspense` child.
+ * The gate runs in the page body, not inside a child.
+ *
+ * No Suspense boundary around the form. React streams suspended content into a `<div hidden>` and
+ * swaps it in with an inline script, so a boundary around a control makes that control unreachable
+ * with JavaScript disabled — M11 lost the front page's vote forms to exactly this. The plan
+ * requires submitting and replying to work without JavaScript, so the read is awaited instead.
  *
  * A `redirect()` after streaming has begun cannot set a status: the shell flushes 200 and the
  * redirect travels in the payload, so a reader without JavaScript gets a blank page and a crawler
@@ -27,9 +32,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Searc
   return (
     <PageShell nav="Submit" section="submit" aside={<Rules searchParams={searchParams} />}>
       <PageHead title="Submit" sub="A link or a text post, not both." />
-      <Suspense fallback={<p className="mt-4 type-meta text-meta">Loading…</p>}>
-        <Form searchParams={searchParams} />
-      </Suspense>
+      <Form searchParams={searchParams} />
     </PageShell>
   );
 }

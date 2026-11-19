@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { deletePost } from "@/services/post-actions";
 
 /**
  * The inline confirm for deleting your own post, in the red destructive tone — DESIGN.md's State
@@ -7,12 +8,14 @@ import Link from "next/link";
  * URL-driven rather than client state, so it survives a reload and needs no JavaScript. Not a
  * `Notice`: a notice reports a state, this asks a question and carries both answers.
  *
- * The hidden `id` is load-bearing: with no `action`, a submit is a GET to the current path, which
- * replaces the query string and would drop `id` into a 404. M12 brings `deletePost`.
+ * The hidden `id` is what the action reads. It verifies ownership and the zero-comment rule itself:
+ * this form is only rendered to the author of a childless post, and that is a courtesy, not a
+ * permission check — the action is reachable without ever loading the page.
  */
 export function DeleteConfirm({ postId }: { postId: number }) {
   return (
     <form
+      action={deletePost}
       role="group"
       aria-label="Confirm deletion"
       className="mt-3 flex flex-col gap-3 rounded-hair border border-red-line bg-red-bg px-[14px] py-[10px] text-[14px] sm:ml-[38px] sm:flex-row sm:items-center sm:gap-x-4"

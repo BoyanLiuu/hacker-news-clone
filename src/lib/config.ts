@@ -13,6 +13,11 @@ export const CFG = {
   titleMax: 80,
   /** Visual cap only; the tree is stored to unlimited depth. */
   depthCap: 8,
+  /**
+   * The reply textarea has carried `maxLength={10_000}` since M5; this is that number, named, so
+   * the action and the field cannot drift. A browser's maxLength is not a limit a server may trust.
+   */
+  commentMax: 10_000,
   /** A URL posted within this window folds into the existing thread. */
   dupDays: 14,
   editMinutes: 120,

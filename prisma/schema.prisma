@@ -130,6 +130,35 @@ model Flag {
   @@schema("hacker_news_clone")
 }
 
+/**
+ * One row per submission attempt, for the per-network rate limit.
+ *
+ * The per-user limit needs no table: `getSubmitQuota` counts the viewer's own posts in the last
+ * hour. An IP has no rows of its own, and the limit has to survive a deploy and hold across
+ * serverless instances, so an in-process map would make the real limit 10 x instances.
+ *
+ * Pruned by the nightly karma job rather than by a job of its own. Nothing reads a row older than
+ * an hour, so the table's steady size is one hour of traffic.
+ */
+model RateHit {
+  id        Int      @id @default(autoincrement())
+  /**
+   * A truncated network prefix, never the address: /24 for IPv4, /48 for IPv6 — see `networkOf`.
+   *
+   * Not a salted hash, which was the first instinct. A hash needs a secret, and a secret with a
+   * committed fallback is not a secret, while a per-process one would make rows from different
+   * instances never match and put the limit back to per-instance. Truncation needs no key, cannot
+   * be reversed to a person, survives restarts, and is literally the "per network" the submission
+   * rules already promise. The cost is that neighbours on a subnet share an allowance.
+   */
+  network   String
+  createdAt DateTime @default(now())
+
+  @@index([network, createdAt])
+
+  @@schema("hacker_news_clone")
+}
+
 model RankedPost {
   postId     Int      @id
   score      Decimal

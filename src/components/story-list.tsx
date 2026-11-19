@@ -1,3 +1,4 @@
+import { editWindow } from "@/lib/edit-window";
 import type { StoryRowData } from "@/lib/rows";
 import { StoryRow } from "./story-row";
 
@@ -53,6 +54,7 @@ export function StoryList({
             viewerName={viewerName}
             canFlag={canFlag}
             voted={voted?.has(row.post.id)}
+            canEdit={editWindow(row.post.createdAt).open}
           />
         ))}
       </ol>
