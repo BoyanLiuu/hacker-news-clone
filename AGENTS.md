@@ -71,3 +71,23 @@ fine; values and functions are not. `src/lib/rows.ts` exists for exactly this re
 And verify a listing by counting rows in the served HTML, not by reading the build log:
 
     curl -s localhost:PORT/ | grep -c '<li class="grid'
+
+### A Suspense boundary makes every control inside it unreachable without JavaScript
+
+React streams suspended content into a `<div hidden id="S:n">` at the end of the document and swaps
+it into place with an inline script. With scripting off that script never runs, so the boundary's
+fallback is all anyone sees. M11 lost the plan's no-JS voting requirement to this: `/` served 30
+skeleton bars, and no form inside could be reached whatever the form did.
+
+So a boundary may wrap presentation, never a control. On `/` the rows are awaited directly and only
+the aside streams, which is also why `StoryListSkeleton` is no longer used there.
+
+Verify it the only way that counts — scripting genuinely off, not "I didn't click anything":
+
+    const cdp = await context.newCDPSession(page)
+    await cdp.send("Emulation.setScriptExecutionDisabled", { value: true })
+
+Two traps when testing a signed-in no-JS path. Clerk's `__session` JWT lives **60 seconds** and is
+refreshed by Clerk's own client script, so load a page with JS first and act immediately; a stale
+token makes the action run and refuse, which looks exactly like the action never running. And
+`page.request` did not carry the context's session cookie here, so drive the real browser instead.

@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { DatasheetTable, SyntheticNote } from "@/components/datasheet-table";
 import { DecayFigure, FigureCaption, FigureFootnote, toFigurePoints } from "@/components/decay-figure";
 import { PageHead, PageShell } from "@/components/page-shell";
 import { OutOfRange, Pager, pageFromParam, pageOutOfRange } from "@/components/pager";
-import { StoryList, StoryListSkeleton } from "@/components/story-list";
+import { StoryList } from "@/components/story-list";
 import { toRows } from "@/lib/rows";
 import { CFG } from "@/lib/config";
 import { formatCount } from "@/lib/format";
@@ -15,17 +14,22 @@ import { getViewer, getViewerOpts } from "@/services/viewer";
 type Search = Promise<{ p?: string }>;
 
 /**
- * The ranked front page. Rendered per request — the ranking is a function of now() — with the
- * ordering behind a Suspense boundary so the header and footer flush first and the skeleton on the
- * live grid covers the gap. ARCHITECTURE §5: a dynamic page over a cached data read.
+ * The ranked front page. Rendered per request, because the ranking is a function of now().
+ *
+ * The rows are **not** behind a Suspense boundary, and that is M11's correction to M6. React streams
+ * suspended content into a `<div hidden>` and swaps it in with an inline script, so with JavaScript
+ * disabled the boundary served skeleton bars and nothing else — which made the vote forms inside it
+ * unreachable and the plan's no-JS requirement impossible to meet, whatever the forms did. Awaiting
+ * the ranked read here puts one database round trip into TTFB and the rows into the initial HTML.
+ *
+ * The aside keeps its boundary: Figure 1 reads all 973 candidates, it is the slow half of the page,
+ * and nothing in it is a control. ARCHITECTURE §5: a dynamic page over a cached data read.
  */
-export default function FrontPage({ searchParams }: { searchParams: Search }) {
+export default async function FrontPage({ searchParams }: { searchParams: Search }) {
   return (
     <PageShell nav="Front" section="front page" aside={<FrontAside />}>
       <PageHead title="Front page" sub="Ranked by score and age" />
-      <Suspense fallback={<StoryListSkeleton />}>
-        <RankedList searchParams={searchParams} />
-      </Suspense>
+      <RankedList searchParams={searchParams} />
     </PageShell>
   );
 }
