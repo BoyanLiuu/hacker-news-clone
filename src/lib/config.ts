@@ -3,18 +3,6 @@
  * (ARCHITECTURE Appendix G) are marked so a reader knows they are a decision, not a fact.
  */
 export const CFG = {
-  /**
-   * The ranking exponent, for display only.
-   *
-   * The score is computed in SQL by `refresh_ranked_posts`, which declares its own
-   * `gravity constant numeric := 1.8` — that is the copy that executes. `lib/rank.ts` used to hold
-   * a TypeScript implementation for Figure 1; the figure is gone and so is that file, because two
-   * copies of a formula with only one of them running is how they drift apart unnoticed.
-   *
-   * Changing the ranking therefore means a migration, not an edit here. This value only labels the
-   * Characteristics table, and a mismatch would make that table lie.
-   */
-  gravity: 1.8,
   pageSize: 30,
   /**
    * Here, not in the form: a value exported from a `"use client"` module reaches a server component
@@ -57,11 +45,16 @@ export const CFG = {
   flagMinKarma: 30,
   ratePerHour: 3,
   ratePerIp: 10,
-  /** Only posts younger than this can reach the front page. This bound is what makes ranking tractable. */
-  windowDays: 7,
   /** Open question: shorter makes voting feel live and multiplies cache misses. */
   recomputeSeconds: 60,
 } as const;
+
+/**
+ * Two ranking parameters deliberately do *not* live here: the gravity exponent (1.8) and the
+ * candidate window (7 days). Both are declared inside `refresh_ranked_posts` and nothing in
+ * TypeScript reads them, so a copy on this side would be a value you could edit with no effect —
+ * which is the same trap as two implementations of the formula. See the `ranking_job` migration.
+ */
 
 export const HOUR = 3600_000;
 export const MINUTE = 60_000;

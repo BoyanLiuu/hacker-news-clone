@@ -1,32 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <!--
-    The ByteBoard mark, drawn for a 16 px browser tab. Same two elements as the header's wordmark in
-    `components/site-header.tsx`, a square and a diagonal arrow leaving it, but filled rather than
-    outlined: at 16 px the header's three 1.5 px strokes inside an outlined box collapse into a grey
-    smudge, so here the square is the solid shape and the arrow is knocked out of it.
+    The header's mark at tab size: the same square and escaping arrow, but filled rather than
+    outlined, because at 16 px three 1.5 px strokes inside a box collapse into a smudge.
 
-    Colours are literal hex rather than the CSS custom properties the components use. A favicon is
-    fetched outside the document, so it has no stylesheet and nothing to resolve them against; these
-    two values are the petrol and paper tokens from `globals.css` and have to be changed by hand if
-    those move.
+    Literal hex, not the CSS custom properties the components use: a favicon is fetched outside the
+    document, so there is no stylesheet to resolve them against. They are the petrol and paper
+    tokens, and must be changed by hand if those move.
 
-    The dark variant is not decoration, and the numbers are measured rather than judged by eye: the
-    first look at a composite said petrol was fine on a dark strip, and the contrast said otherwise.
-    Plate against strip, which is what decides whether the mark has a silhouette at all:
+    The scheme swap is measured. Plate against tab strip, which decides whether the mark has a
+    silhouette: petrol is 2.34 on Chrome's dark strip and 1.24 on the blue one this was reported in,
+    against 15.67 and 8.33 for paper; on a light strip the pairing inverts, 5.26 to 1.28. So each
+    scheme takes the plate that survives it. `favicon.ico` cannot do this and carries light only.
 
-      strip                   petrol plate   paper plate
-      Chrome dark  #202124            2.34         15.67
-      Chrome light #dee1e6            5.26          1.28
-      reported     #2d4d7a            1.24          8.33
-
-    At 1.24 the plate is gone and all that is left is a floating white arrow, which still reads but
-    is no longer the mark. So each scheme takes the plate that survives it. Chrome honours
-    `prefers-color-scheme` inside an SVG favicon; the rasterised `favicon.ico` beside this file
-    cannot, and carries the light pairing only.
-
-    Keep this comment free of double hyphens. XML forbids them inside a comment, and Chrome rejects
-    the whole file rather than ignoring the comment, so the first draft of this served a parser
-    error where the icon should have been.
+    Keep this comment free of double hyphens. XML forbids them and Chrome rejects the whole file
+    rather than the comment, so the first draft served a parser error where the icon should be.
   -->
   <style>
     .plate { fill: #00646e }

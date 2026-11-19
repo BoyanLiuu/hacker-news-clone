@@ -3,25 +3,17 @@ import { Bar, TextLine } from "./skeleton";
 /**
  * The loading states for `/item` and `/reply`.
  *
- * Built on the same principle as `StoryListSkeleton`: render the real chrome — the rules, the
- * indent borders, the reply box — and bar only the text. Chrome that is already correct does not
- * need to be faked, and anything rendered for real cannot drift from the thing it stands in for.
+ * Same principle as `StoryListSkeleton`: render the real chrome — rules, indent borders, the reply
+ * box — and bar only the text. Anything rendered for real cannot drift from what it stands in for.
  *
- * The two pages get two skeletons rather than one with a flag, because they do not stack the same
- * way: `/item` is headline, reply box, then comments, and `/reply` is breadcrumb, the comment, then
- * the reply box at the bottom. A single component covering both would be a prop that reorders its
- * own children, which is how a skeleton quietly stops matching the page.
+ * Two components rather than one with a flag, because the pages do not stack the same way: `/item`
+ * is headline, box, comments; `/reply` is breadcrumb, comment, box.
  */
 
-/**
- * Line heights read off the live page at 1440 px, not chosen here: `type-meta` computes to 19.5,
- * `CommentBody` to 15 px over 1.58, and the thread headline to 30. They are stated as numbers
- * because `TextLine` needs an actual height, and as a group because a type change should break
- * them all together and visibly rather than one at a time.
- */
+/** Line heights measured off the live page, not chosen here — `TextLine` needs real numbers. */
 const LINE = { meta: 19.5, body: 23.7, headline: 30 } as const;
 
-/** `CommentBody`'s measure. The real body is `max-w-[70ch]`, which is 646 px at 15 px Chivo. */
+/** `CommentBody`'s own measure, so bars wrap where the text will. */
 const BODY_MEASURE = "max-w-[70ch]";
 
 /** Deterministic variation, so the bars read as text rather than as a progress meter. */
@@ -30,13 +22,9 @@ function widthFor(seed: number, min: number, spread: number): string {
 }
 
 /**
- * The reply box, rendered as a real disabled `<textarea rows={4}>` rather than as bars.
- *
- * A bar stack guessing at the height of four rows of 15 px text would shift the comments below it
- * the moment the real box arrived, and N8 is still a live requirement. The same element with the
- * same `rows` and the same type cannot be wrong about its own height — it measures 108 px both
- * ways. The box is not pulsed, for the same reason the story list renders its real head band: it
- * already looks like the thing it becomes.
+ * A real disabled `<textarea rows={4}>`, not bars: the same element with the same `rows` cannot be
+ * wrong about its own height, where a guessed bar stack would shift every comment below it. Not
+ * pulsed, because it already looks like what it becomes.
  */
 function ReplyBoxSkeleton({ submitWidth }: { submitWidth: string }) {
   return (

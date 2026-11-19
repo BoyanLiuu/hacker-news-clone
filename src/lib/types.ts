@@ -58,14 +58,10 @@ export type Post = {
   flags: number;
 };
 
-/** A post with its computed rank score — what the front page and Figure 1 both read. */
 /**
- * A post as the ranked listing needs it.
- *
- * `ageHours` and `score` were here for Figure 1 and `/rank-debug`, which printed the arithmetic
- * behind the order. Both are gone, and nothing read either field afterwards — the listing shows
- * points and a relative age it formats itself. The ordering is still the stored `RankedPost.score`;
- * it is simply no longer carried up to be displayed.
+ * A post as the ranked listing needs it: points, and the post. No score and no age in hours — the
+ * ordering is `RankedPost.score` in Postgres and is never carried up to be displayed, and the row
+ * formats its own relative age.
  */
 export type ScoredPost = {
   post: Post;

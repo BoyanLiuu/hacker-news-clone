@@ -14,22 +14,13 @@ type Search = Promise<{ limited?: string }>;
 /**
  * A link or a text post, never both.
  *
- * No rules table beside the form. The constraints are enforced in `lib/validate.ts` and re-checked
- * in `submitPost`, and the form states each one where it applies — the title counter, the URL/text
- * divider, the inline errors, and the rate-limit notice when the allowance is actually spent. A
- * panel restating all of them was a second place for the same rules to live, and the one most
- * likely to go stale.
+ * No rules panel beside the form: the constraints are enforced in `lib/validate.ts`, re-checked in
+ * `submitPost`, and stated by the form where each applies. A panel restating them would be a second
+ * place for the same rules to live.
  *
- * The gate runs in the page body, not inside a child, and that is deliberate: a `redirect()` after
- * streaming has begun cannot set a status. The shell flushes 200 and the redirect travels in the
- * payload, so a crawler records a 200 for a page it was never allowed to see. Same lesson as
- * `notFound()` in `item/page.tsx` — the check that decides whether a page exists at all has to
- * happen before the first byte.
- *
- * The quota read, by contrast, decides only what the form *says*, so it streams. The boundary used
- * to be absent for a different reason: React streams suspended content into a `<div hidden>` and
- * swaps it in with an inline script, which put the form out of reach with JavaScript disabled. The
- * plan required that until 19 Nov 2026 (ARCHITECTURE §2, N3) and no longer does.
+ * The gate runs in the page body, above the boundary, because a `redirect()` issued after streaming
+ * begins cannot set a status — the shell has already flushed 200. The quota read decides only what
+ * the form *says*, so that part streams.
  */
 export default async function SubmitPage({ searchParams }: { searchParams: Search }) {
   await requireViewer();

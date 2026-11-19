@@ -5,10 +5,8 @@ type Appearance = NonNullable<React.ComponentProps<typeof ClerkProvider>["appear
 /**
  * Clerk's prebuilt forms, dressed as ByteBoard's.
  *
- * The design has no account screens of its own — `ux-31-login.png` showed a username and password
- * form from an earlier reading of the brief, and Google OAuth superseded it (Appendix B). So rather
- * than rebuild Clerk's flows, this maps its slots onto the tokens in `globals.css`: 2 px radii, the
- * one petrol hue, and Chivo throughout.
+ * The design has no account screens of its own, so rather than rebuild Clerk's flows this maps its
+ * slots onto the tokens in `globals.css`: 2 px radii, the one petrol hue, Chivo throughout.
  *
  * `cssLayerName` is what makes any of it take effect. Clerk injects its rules unlayered, and
  * unlayered CSS outranks every cascade layer regardless of order, so Tailwind's `@layer utilities`
@@ -47,10 +45,8 @@ export const byteBoardAppearance: Appearance = {
     headerSubtitle: "type-meta text-meta",
     formButtonPrimary:
       "bg-ink hover:bg-ink-hover text-paper font-semibold text-[14px] h-9 rounded-hair shadow-none normal-case",
-    // `border` as well as `border-field`, because a width is not implied by a colour. It used to be
-    // load-bearing for a different reason — Clerk sat below Tailwind's preflight, which zeroed every
-    // border it drew — and that is fixed in `globals.css` now. Kept because these two want ByteBoard's
-    // field stroke rather than Clerk's, and a width stated beside its colour cannot drift from it.
+    // `border` as well as `border-field`: a width is not implied by a colour, and these two fields
+    // want ByteBoard's stroke rather than Clerk's.
     formFieldInput: "border border-field rounded-hair focus:border-petrol",
     socialButtonsBlockButton: "border border-field rounded-hair hover:border-field-hover",
     footerActionLink: "text-petrol-ink underline underline-offset-2",

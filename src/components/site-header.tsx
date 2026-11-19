@@ -49,9 +49,8 @@ function NavItem({ href, label, active }: { href: string; label: string; active:
 }
 
 /**
- * The wordmark and nav are the same for everyone, so they render immediately. The account block
- * and the document line are per-request and stream into the slots — both fixed-height, so nothing
- * shifts when they arrive.
+ * The wordmark and nav are the same for everyone, so they render immediately. The account block is
+ * per-request and streams into its slot at a fixed height, so nothing shifts when it arrives.
  */
 export function SiteHeader({
   current,

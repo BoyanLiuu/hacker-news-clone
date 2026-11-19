@@ -23,17 +23,13 @@ const CLERK_COOKIE_PREFIXES = ["__session", "__clerk_db_jwt", "clerk_active_cont
 /**
  * End the session and go home.
  *
- * This exists to get `<ClerkProvider>` off the reading paths. Clerk's `<SignOutButton>` is a client
- * component and the header renders on every page, so one logout button pulled Clerk's React SDK
- * app-wide: measured at 313.7 KB gz of first-party JavaScript on `/`, against a 174 KB framework
- * floor. Without it, `/` ships 181.4 KB. See `(auth)/layout.tsx` on why that still matters now the
- * stated budget is gone.
+ * A Server Action rather than Clerk's `<SignOutButton>`, which is a client component and would pull
+ * the React SDK onto every page through the header — see `(auth)/layout.tsx`.
  *
- * Two things are required, and the first version shipped only one. Revoking the session kills it
- * for anyone holding a copy of the token. Deleting the cookies is what signs *this* browser out —
- * the session JWT is self-contained and stays valid for its full 60 seconds, so a revoke alone left
- * the header showing the user and `/submit` reachable. Verified by clicking the button, not by
- * reading the API.
+ * Both halves are required and the first version shipped only one. Revoking kills the session for
+ * anyone holding the token; deleting the cookies is what signs *this* browser out, because the
+ * session JWT is self-contained and stays valid for its full 60 seconds. A revoke alone left the
+ * header showing the user and `/submit` reachable.
  */
 export async function signOut(): Promise<void> {
   const { sessionId } = await auth();

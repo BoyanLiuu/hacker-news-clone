@@ -28,18 +28,13 @@ type Search = Promise<{ id?: string; dup?: string; confirm?: string; cp?: string
  * assembled in one pass (ARCHITECTURE §6.2). A dead story is reachable here even though listings
  * hide it, which is why this uses getPostById rather than a listing query.
  *
- * The id is validated here, in the page body, so `notFound()` can set a 404 status — once the shell
- * has been flushed it cannot. The trade is that Next answers with its own minimal error document
- * rather than `not-found.tsx`; the status, the noindex and the browser-rendered page are all
- * correct. A wrong status code is worse: it makes every dead link look alive to crawlers and link
- * checkers.
+ * The id is validated in the page body so `notFound()` can set a 404 — once the shell has flushed
+ * it cannot, and a wrong status makes every dead link look alive to crawlers. The cost is Next's
+ * own error document instead of `not-found.tsx`, which is the cheaper of the two prices.
  *
- * That gate costs two sequential round trips before the first byte when signed in — `getViewerOpts`
- * resolves the viewer, then `getPostById` needs the result — and one when signed out, where
- * `loadSession` returns without touching the database. Both are request-cached, so the thread below
- * pays nothing to read the post again. What the boundary buys is the comment read, which is the
- * expensive one: a 500-comment thread no longer holds the header, the nav and the story back while
- * it loads.
+ * That gate pays two sequential round trips signed in (`getViewerOpts`, then `getPostById` needs
+ * its result) and one signed out. Both are request-cached, so the thread re-reads the post for
+ * nothing; what the boundary buys is the comment read, the expensive one.
  */
 export default async function ItemPage({ searchParams }: { searchParams: Search }) {
   const id = Number((await searchParams).id);
@@ -134,12 +129,6 @@ function DuplicateNotice({ post }: { post: Post }) {
 /**
  * Table 1, the thread's contents: every top-level comment with its reply count, so a long thread
  * can be navigated rather than scrolled.
- *
- * The design also pairs a thread with its own Figure 1 — points and rank since posting. It is not
- * built, and not deferred to a later milestone either: it needs per-vote timestamps, and phase 1
- * has only a current score. Drawing it from `pointsAt`'s back-projection would put an invented
- * history on the page in the same frame as measured facts. ARCHITECTURE Appendix E records it as
- * dropped from phase 1, to be reconsidered in M9 once the ranking job keeps a history.
  */
 async function ThreadAside({ searchParams }: { searchParams: Search }) {
   const [params, opts] = await Promise.all([searchParams, getViewerOpts()]);

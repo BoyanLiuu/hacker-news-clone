@@ -1,19 +1,12 @@
 /**
- * The keyboard shortcuts, in one place that both sides of the client boundary can read.
+ * The keyboard shortcuts, in one place both sides of the client boundary can read.
  *
- * Here and not in `keyboard-nav.tsx` because that file is `"use client"`, and a plain value exported
- * from a client module becomes a client *reference*: the footer hint is a server component, and
- * importing this from there turned every page into a 500 with
- * `TypeError: SHORTCUTS.filter is not a function`.
+ * Here and not in `keyboard-nav.tsx`, which is `"use client"`: the footer hint is a server
+ * component, and importing a value from a client module gives you a client *reference* and a 500 at
+ * runtime with a clean build. Same trap as `rows.ts`; see AGENTS.md.
  *
- * That is the third time this project has shipped that shape — `TITLE_MAX` in M5, `toRows` in M11,
- * this in M15 — and each time `tsc`, `eslint` and `next build` all passed, because it only fails
- * when the code runs. AGENTS.md carries the rule. It did not stop it happening again, so the rule
- * now names this file as the place such values go.
- *
- * `long` is the dialog's wording, which has room for a sentence; `short` is the footer's, which has
- * room for a word and matches the comps' `j k move · u vote · x collapse · ?`. `comments` marks the
- * keys that only do something in a thread.
+ * `long` is the dialog's wording, `short` the footer's. `comments` marks keys that only act in a
+ * thread.
  */
 export const SHORTCUTS: {
   keys: string[];

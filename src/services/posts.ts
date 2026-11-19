@@ -71,18 +71,14 @@ async function newestPage(
 }
 
 /**
- * The front page: an index scan on `RankedPost(score DESC)`, paginated in Postgres.
+ * The front page: an index scan on `RankedPost(score DESC)`, paginated in Postgres, cached across
+ * requests for 60 s — matching `CFG.recomputeSeconds`, because the ordering cannot change faster
+ * than the job that writes it.
  *
  * Both shapes were measured before this one was kept (README): the index scan does 91x less
- * database work, but only ~17% of a request, since round-trip latency dominates.
- *
- * The deciding reason used to be the staleness indicator — inline scoring has no `computedAt` to be
- * stale against — and that indicator is gone with the document line. The materialised table stays
- * on the measurement alone, which is the weaker of the two arguments and worth knowing.
- */
-/**
- * The front page, cached across requests for 60 s — matching `CFG.recomputeSeconds`, because the
- * underlying ordering cannot change faster than the job that writes it.
+ * database work, but only ~17% of a request, since round-trip latency dominates. That measurement
+ * is now the whole case for it — the staleness indicator that used to be the stronger argument was
+ * removed with the document line.
  *
  * Signed-out only. The query depends on `showDead`, `isModerator` and `userId`, so a shared cache
  * would serve one reader's visibility to another; keying on them would mean an entry per user.

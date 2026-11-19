@@ -9,9 +9,6 @@ import { AccountBlock, AccountFallback, SiteHeader } from "./site-header";
  * Deliberately synchronous, so the chrome flushes before any data read completes: the account block
  * and whatever the page streams into `children` each sit behind their own boundary. The aside is a
  * slot, not a render prop, so a page passes the element it wants.
- *
- * There is no `section` prop any more. It existed only to label the document line — the
- * `front page · rev 862 · ranked 06:32 UTC · 17 s ago · gravity 1.8` strip — which is gone.
  */
 export function PageShell({
   nav,

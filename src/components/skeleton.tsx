@@ -1,16 +1,10 @@
 /**
- * The one skeleton bar.
+ * The one skeleton bar. `aria-hidden`, because the container carries `role="status"` and the label
+ * — the role being load-bearing, since an `aria-label` on a role-less `div` is not reliably exposed.
  *
- * Lived in `story-list.tsx` until the thread needed it too. It is `aria-hidden`, and the container
- * carries `role="status"` with an `aria-busy` label, so a screen reader hears "loading the
- * discussion" once rather than counting forty anonymous boxes. The role is load-bearing: an
- * `aria-label` on a role-less `div` is not reliably exposed, which is how the listing skeleton
- * announced nothing at all.
- *
- * No height of its own. A default here could not be overridden reliably from `className`: two
- * Tailwind height utilities on one element are decided by the order they appear in the generated
- * stylesheet, not by the order they appear in the string, so `h-9` lost to a baked-in `h-[12px]`
- * and the submit button rendered as a hairline. Every caller states its height.
+ * No default height. Two Tailwind height utilities on one element are resolved by stylesheet order,
+ * not class-string order, so a baked-in `h-[12px]` silently beat callers' `h-9`. Every caller
+ * states its own.
  */
 export function Bar({
   className = "",
@@ -29,13 +23,9 @@ export function Bar({
 }
 
 /**
- * A bar standing in for one line of text, inside a box of that line's real height.
- *
- * This is what keeps a skeleton from shifting the page. Stacking bars and guessing at the gaps gets
- * the look right and the total height wrong, and the error compounds down a long column — eight
- * comment rows at 3 px out each is a quarter of a row. Giving the wrapper the line height the live
- * type actually computes to means the bar can be any weight that reads well without moving
- * anything below it.
+ * A bar standing in for one line of text, inside a box of that line's real height — which is what
+ * stops the skeleton shifting the page. Guessing at gaps gets the look right and the total height
+ * wrong, and the error compounds: eight rows at 3 px out is a quarter of a row.
  */
 export function TextLine({
   line,

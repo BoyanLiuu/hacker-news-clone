@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import { PageShell } from "@/components/page-shell";
 
 /**
- * Inside the app shell, not a bare centred card: the header and the document line are what make
- * this look like ByteBoard rather than a hosted form on a blank page.
+ * Inside the app shell, not a bare centred card: the header and nav are what make this look like
+ * ByteBoard rather than a hosted form on a blank page.
  *
  * Wrapped in `Suspense` because the catch-all reads the URL with `usePathname()`.
  */

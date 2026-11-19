@@ -1,16 +1,12 @@
 /**
- * How far a low-scored comment fades, on DESIGN.md's four-step ink ramp.
+ * How far a low-scored comment fades, on the four-step ink ramp. A score is shown to its author
+ * alone, so for everyone else this is the only signal a comment was voted down.
  *
- * Appendix A: a comment's score is shown to its author alone, so for everyone else this dimming is
- * the *only* signal that a comment was voted down. It therefore has to mean something specific.
+ * Fading starts *below* 1, not at it: every comment begins at 1, and the imported dataset has
+ * 134 459 of them sitting at exactly 1 because Algolia returns no per-comment points. Dimming at
+ * `>= 1` would grey out every thread and say nothing.
  *
- * The thresholds start below 1, not at it, because 1 is where every comment begins — an unvoted
- * comment is not a bad one, and the imported dataset has 134 459 comments all sitting at exactly 1
- * (Algolia returns no per-comment points). Fading those would grey out every thread in the product
- * and say nothing. So only a comment that has been pushed to zero or below fades, which is also
- * what Hacker News does.
- *
- * All four tokens clear 4.5:1 on paper — the ramp dims, it never makes text fail contrast.
+ * All four tokens clear 4.5:1 on paper — the ramp dims, it never fails contrast.
  */
 export function dimFor(score: number): string {
   if (score >= 1) return "text-ink-2";

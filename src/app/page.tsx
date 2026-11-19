@@ -14,18 +14,11 @@ type Search = Promise<{ p?: string }>;
  * The ranked front page. Rendered per request, because the ranking is a function of now().
  *
  * The rows stream behind a Suspense boundary, so the header, the nav and the skeleton grid leave
- * the server before the ranked read resolves. M11 had removed the boundary: React streams suspended
- * content into a `<div hidden>` and swaps it in with an inline script, which put the vote forms out
- * of reach with JavaScript disabled, and the plan then required reading without it. That
- * requirement was withdrawn on 19 Nov 2026 (ARCHITECTURE §2, N3), and with it the reason to pay a
- * database round trip inside TTFB on every page view.
+ * the server before the ranked read resolves rather than after it. Keeping this function
+ * synchronous is what allows that — an `await` here would hold the shell back exactly as rendering
+ * the list inline did.
  *
- * The page function is synchronous and awaits nothing, which is what lets the shell flush first —
- * an `await` here would block it just as surely as rendering the list inline did.
- *
- * No aside. The Characteristics datasheet that stated gravity, the candidate window, the recompute
- * interval and the page size is gone with Figure 1 — the ordering is the product, not an exhibit
- * about the ordering. ARCHITECTURE §5: a dynamic page over a cached data read.
+ * No aside: the ordering is the product, not an exhibit about the ordering.
  */
 export default function FrontPage({ searchParams }: { searchParams: Search }) {
   return (

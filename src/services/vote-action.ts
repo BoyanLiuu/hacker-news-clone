@@ -47,16 +47,13 @@ function parse(form: FormData): { type: ItemType; id: number; direction: 1 | -1 
  * second vote, and clicking it after the window is a no-op that reports the standing vote rather
  * than an error: the row already shows the right thing, so there is nothing to tell the voter.
  *
- * The whole thing is one transaction because `scoreRaw` is a denormalised count of this table. A
- * `Vote` row written without its score adjustment, or the reverse, is drift that the nightly karma
- * job cannot repair — that job recomputes `User.karma`, not `scoreRaw`.
+ * One transaction, because `scoreRaw` is a denormalised count of this table: a `Vote` row written
+ * without its score adjustment is drift the nightly karma job cannot repair, since that job
+ * recomputes `User.karma`, not `scoreRaw`.
  *
- * The acting user comes from the session, never from the form. The item id does come from the form,
- * which is why every rule below is re-checked here: a Server Action is a public endpoint, and the
- * UI not offering a downvote is not the same as the server refusing one.
- *
- * Shaped for `useActionState` — `(prev, form)` — because that hook is what keeps the form working
- * with JavaScript disabled while still handing the result back to the row for its failed state.
+ * The acting user comes from the session, never the form. The item id does come from the form,
+ * which is why every rule is re-checked here — a Server Action is a public endpoint, and the UI not
+ * offering a downvote is not the server refusing one.
  */
 export async function castVote(_prev: VoteResult | undefined, form: FormData): Promise<VoteResult> {
   const input = parse(form);
@@ -127,8 +124,8 @@ export async function castVote(_prev: VoteResult | undefined, form: FormData): P
     if (result.ok) {
       if (input.type === "post") {
         // The listing reads `RankedPost`, which the cron rebuilds on its own schedule; this only
-        // refreshes what the voter sees now. Everyone else's order stays up to 60 s stale, which
-        // ARCHITECTURE §1.2 chose deliberately and the document line reports.
+        // refreshes what the voter sees now. Everyone else's order stays up to 60 s stale, which is
+        // the deliberate trade: the ordering is a computed fact, not a live tally.
         revalidatePath("/");
       } else if (threadId !== null) {
         // A comment's score drives the dim ramp and the sibling sort, so its thread's cached rows

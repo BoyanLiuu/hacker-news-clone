@@ -3,29 +3,17 @@ import { db } from "@/lib/db";
 import { childPath, depthOf } from "@/lib/path";
 
 /**
- * Seeds Postgres from the phase-1 fixtures.
+ * Seeds Postgres from the phase-1 fixtures: 69 posts, 14 users, 457 comments, including one
+ * 334-comment thread at depth 12, so the depth cap, collapse and `path` ordering meet real data.
  *
- * Two jobs, and the second is the reason this is worth more than a few hand-written rows:
+ * Seeded *from the fixtures* rather than from new content, because that is what makes swapping the
+ * services back to fixtures a meaningful comparison — both sides then serve the same rows.
  *
- * 1. **A demo database with real conversation.** 69 posts, 14 users and 457 comments, including one
- *    334-comment thread that reaches depth 12 — so the depth cap, collapse, the thread contents
- *    table and `path` ordering are all exercised by actual data rather than by three rows.
+ * `path` is not copied but recomputed with `childPath`, the app's own helper, then compared against
+ * the value the fixtures carry: 457 comments of agreement, a stronger check than any unit test.
  *
- * 2. **An exact boundary check.** M7's real test is stashing the services back to fixtures and
- *    finding the UI identical. That only means something if both sides serve the *same* data, which
- *    is why this seeds from the fixtures rather than inventing new content.
- *
- * `path` is not copied. It is recomputed with `childPath`, the same helper the app uses, and then
- * compared against the value the fixtures already carry — 457 comments' worth of agreement, which
- * is a stronger check on the helper than any unit test in the suite.
- *
- * M8 replaces this with ~2 000 real stories from the HN API via `COPY`. This one stays useful as the
- * small, offline, deterministic dataset.
- *
- * Run: pnpm db:seed
- *
- * The script needs `--env-file=.env`: Next and the Prisma CLI load `.env` themselves, but a bare
- * tsx process does not, and `src/lib/db.ts` is imported before any statement here could load it.
+ * Run: pnpm db:seed — needs `--env-file=.env`, since a bare tsx process loads no env of its own and
+ * `src/lib/db.ts` is imported before any statement here could.
  */
 
 /** The schema this app owns — see ARCHITECTURE Appendix D. Raw SQL below must qualify with it. */

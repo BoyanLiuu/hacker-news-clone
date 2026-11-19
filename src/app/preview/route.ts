@@ -7,9 +7,8 @@ import { SLOW_COOKIE } from "@/services/viewer";
  * 120 ms with `steps(2, end)` is one intermediate frame held for 60 ms, which is the doctrine
  * working and also impossible to confirm by eye. This multiplies every stepped duration by 16.
  *
- * **The viewer switch that used to live here is gone**, with M10. It set a cookie naming which
- * fixture user you were, which was harmless over synthetic data and privilege escalation over real
- * Clerk sessions. Sign in instead.
+ * **Do not reintroduce the viewer switch.** It set a cookie naming which fixture user you were:
+ * harmless over synthetic data, privilege escalation over real Clerk sessions. Sign in instead.
  *
  * Still phase-1 tooling: 404s in production so it cannot outlive its usefulness, and `to` must be a
  * same-origin absolute path so this is not an open redirector.

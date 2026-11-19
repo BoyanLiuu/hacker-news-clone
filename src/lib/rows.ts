@@ -1,14 +1,12 @@
 import type { Post } from "./types";
 
 /**
- * The data one listing row needs. Lives here rather than beside the component because
- * `story-row.tsx` is `"use client"`, and a plain function exported from a client module becomes a
- * client *reference*: calling it on the server throws "Attempted to call toRows() from the server".
+ * The data one listing row needs — and the reason this file exists rather than living beside
+ * `story-row.tsx`, which is `"use client"`.
  *
- * That is not hypothetical. It is how this file came to exist — `tsc`, `eslint` and `next build` all
- * passed while every listing page rendered zero rows, because the failure is a runtime one. The same
- * shape cost M5 a page too, when `TITLE_MAX` came from a client module and rendered as the stub's
- * source text. Non-component exports belong on this side of the boundary.
+ * A non-component export from a client module is a client *reference*, so calling it on the server
+ * throws at runtime while `tsc`, `eslint` and `next build` all pass. This has broken three
+ * milestones; see AGENTS.md. Values both sides read belong here, in `src/lib/`.
  */
 export type StoryRowData = {
   rank: number;

@@ -121,7 +121,7 @@ the rest.
 
 - Stories, people and comments on the live site are **synthetic sample data**. Real Hacker News
   titles and links are imported via Algolia; the authors are anonymised to generated names.
-- Ranking parameters live in `src/lib/config.ts`: gravity 1.8, a 7-day window, a one-minute
-  recompute, thirty rows a page.
+- Gravity (1.8) and the 7-day candidate window are declared inside `refresh_ranked_posts`, not in
+  TypeScript — one copy, in the thing that runs. Everything else is in `src/lib/config.ts`.
 - [`MILESTONES.md`](./MILESTONES.md) is the build log: what each milestone measured and what it got
   wrong first. It is written up in detail through M10 and trails the code, which reached M15.

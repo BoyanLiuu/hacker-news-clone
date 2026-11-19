@@ -39,7 +39,7 @@ export function formatAgeLong(createdAt: Date, now: Date = new Date()): string {
 
 const plural = (n: number, word: string) => (n === 1 ? word : `${word}s`);
 
-/** The ranked time in the document line is a machine fact, so it is always UTC. */
+/** A machine fact — a save timestamp, not a reading time — so it is always UTC. */
 export function formatUtcTime(at: Date): string {
   return at.toISOString().slice(11, 19);
 }
