@@ -45,8 +45,10 @@ export const tallyAppearance: Appearance = {
     headerSubtitle: "type-meta text-meta",
     formButtonPrimary:
       "bg-ink hover:bg-ink-hover text-paper font-semibold text-[14px] h-9 rounded-hair shadow-none normal-case",
-    // `border` as well as `border-field`: moving Clerk down a layer took its border *widths* with
-    // it, so a colour-only class left both of these at 0px and the fields drawn as bare baselines.
+    // `border` as well as `border-field`, because a width is not implied by a colour. It used to be
+    // load-bearing for a different reason — Clerk sat below Tailwind's preflight, which zeroed every
+    // border it drew — and that is fixed in `globals.css` now. Kept because these two want Tally's
+    // field stroke rather than Clerk's, and a width stated beside its colour cannot drift from it.
     formFieldInput: "border border-field rounded-hair focus:border-petrol",
     socialButtonsBlockButton: "border border-field rounded-hair hover:border-field-hover",
     footerActionLink: "text-petrol-ink underline underline-offset-2",

@@ -110,3 +110,20 @@ after a change returns the pre-transition value. In M15 that made a working curs
 broken CSS for several rounds of debugging. Wait past the duration before asserting on colour,
 shadow or transform — and the same caution applies to a URL after a Server Action redirect, which
 also needs `waitForURL` rather than a fixed timeout.
+
+### Clerk's layer must sit between Tailwind's `base` and `utilities`
+
+`appearance.cssLayerName: "clerk"` is what lets this project's `elements` classes beat Clerk's own
+unlayered CSS. **Where** that layer lands decides whether Clerk still works:
+
+- declared before `@import "tailwindcss"` → lands below `base`, and preflight's
+  `margin: 0; padding: 0; border: 0` strips Clerk's own spacing and borders. The sign-in card
+  renders as stray rules and dead gaps. This shipped from M10 until a screenshot caught it.
+- declared after it → lands above `utilities`, and Clerk's rules beat ours again.
+
+So `globals.css` imports Tailwind's three parts separately and puts `@layer clerk;` between
+`preflight` and `utilities`. A single `@import "tailwindcss"` cannot express that, and a combined
+`@layer theme, base, clerk, components, utilities;` statement gets rewritten by Tailwind.
+
+Judge this one by **looking at the rendered card**, not by probing computed values: `cl-card` is a
+wrapper with no padding of its own, so `padding: 0px` there is normal and proves nothing either way.

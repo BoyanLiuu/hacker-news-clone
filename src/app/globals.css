@@ -1,10 +1,25 @@
-/* Clerk's own styles, declared first so every Tailwind layer outranks them.
-   Unlayered CSS beats *any* cascade layer, so without this the `elements` classes in
-   `clerk-appearance.ts` lose to Clerk's internal rules even though they load later — measured:
-   `bg-ink` on the submit button computed as petrol. `appearance.cssLayerName` puts Clerk here. */
-@layer clerk;
+/* The cascade order, stated once and in full, because Clerk has to sit in the middle of it.
 
-@import "tailwindcss";
+   Clerk injects its own stylesheet unlayered, and unlayered CSS beats every cascade layer — so the
+   `elements` classes in `clerk-appearance.ts` lost to Clerk's internal rules no matter what, even
+   loading later. `appearance.cssLayerName` moves Clerk into a named layer so Tailwind's utilities
+   can outrank it (measured: `bg-ink` on the submit button computed as petrol until this existed).
+
+   **Where in the order is the whole point.** M10 put `clerk` first, which made it the *lowest*
+   layer — below Tailwind's `base`, whose preflight sets `margin: 0; padding: 0; border: 0` on every
+   element. That silently destroyed Clerk's own spacing and borders: the sign-in card rendered as a
+   column of stray rules and dead gaps, and the inputs and OAuth buttons lost their outlines, which
+   I then "fixed" by adding `border` classes rather than recognising the cause.
+
+   So: above `base`, so Clerk's own layout and resets survive; below `utilities`, so this project's
+   classes still win. Tailwind's parts are imported separately because that is the only way to put a
+   layer *between* them — a single `@import "tailwindcss"` establishes its four layers together, and
+   a `@layer` statement before it lands below `base` while one after it lands above `utilities`.
+   Neither is what Clerk needs. Verified by `card.padding`, which preflight zeroed in both. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@layer clerk;
+@import "tailwindcss/utilities.css" layer(utilities);
 
 /* Design System: Tally — tokens from docs/project-idea/28-hacker-news-clone/impeccable/DESIGN.md.
    Colour is spent once: petrol marks the title block, your own state, the figure highlight and focus.
